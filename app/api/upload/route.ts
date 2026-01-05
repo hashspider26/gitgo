@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import sharp from "sharp";
 import { cloudinary } from "@/lib/cloudinary";
 
 export async function POST(req: Request) {
@@ -20,33 +19,15 @@ export async function POST(req: Request) {
         const buffer = Buffer.from(await file.arrayBuffer());
         const filename = Date.now() + "_" + file.name.replaceAll(" ", "_").replace(/[^a-zA-Z0-9._-]/g, "_");
 
-        let processedBuffer: Buffer;
-
-        // Process image with sharp to reduce size
-        try {
-            // Resize and compress image
-            // Max width: 1200px, Max height: 1200px, Quality: 85%
-            processedBuffer = await sharp(buffer)
-                .resize(1200, 1200, {
-                    fit: "inside",
-                    withoutEnlargement: true,
-                })
-                .jpeg({ quality: 85, mozjpeg: true })
-                .toBuffer();
-        } catch (error) {
-            // If sharp processing fails, use original buffer
-            console.warn("Image processing failed, using original:", error);
-            processedBuffer = buffer;
-        }
-
         // Upload to Cloudinary
         const uploadResult = await new Promise((resolve, reject) => {
             const uploadStream = cloudinary.uploader.upload_stream(
                 {
                     folder: "greenvalleyseeds",
-                    public_id: filename.replace(/\.[^/.]+$/, ""), // Remove extension
+                    public_id: filename.replace(/\.[^/.]+$/, ""),
                     resource_type: "image",
                     transformation: [
+                        { width: 1200, height: 1200, crop: "limit" },
                         { quality: "auto" },
                         { fetch_format: "auto" }
                     ]
@@ -60,7 +41,7 @@ export async function POST(req: Request) {
                     }
                 }
             );
-            uploadStream.end(processedBuffer);
+            uploadStream.end(buffer);
         }) as any;
 
         return NextResponse.json({
