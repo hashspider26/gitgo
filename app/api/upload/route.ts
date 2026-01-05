@@ -2,47 +2,48 @@ import { NextResponse } from "next/server";
 import { cloudinary } from "@/lib/cloudinary";
 
 export async function POST(req: Request) {
+    console.log("Upload request received");
+
     try {
+        // Log environment status (Safe check)
+        console.log("Cloudinary Config Status:", {
+            hasCloudName: !!process.env.CLOUDINARY_CLOUD_NAME,
+            hasApiKey: !!process.env.CLOUDINARY_API_KEY,
+            hasApiSecret: !!process.env.CLOUDINARY_API_SECRET,
+            hasUrl: !!process.env.CLOUDINARY_URL
+        });
+
         const formData = await req.formData();
         const file = formData.get("file") as File;
 
         if (!file) {
+            console.error("Upload error: No file in form data");
             return NextResponse.json({ error: "No file received." }, { status: 400 });
         }
 
-        // Check if file is an image
-        const isImage = file.type.startsWith("image/");
-        if (!isImage) {
-            return NextResponse.json({ error: "File must be an image." }, { status: 400 });
-        }
+        console.log("File received:", file.name, file.size, file.type);
 
         const buffer = Buffer.from(await file.arrayBuffer());
+
+        // Convert to Base64 - More stable for Serverless than Streams
+        const base64Image = `data:${file.type};base64,${buffer.toString('base64')}`;
         const filename = Date.now() + "_" + file.name.replaceAll(" ", "_").replace(/[^a-zA-Z0-9._-]/g, "_");
 
-        // Upload to Cloudinary
-        const uploadResult = await new Promise((resolve, reject) => {
-            const uploadStream = cloudinary.uploader.upload_stream(
-                {
-                    folder: "greenvalleyseeds",
-                    public_id: filename.replace(/\.[^/.]+$/, ""),
-                    resource_type: "image",
-                    transformation: [
-                        { width: 1200, height: 1200, crop: "limit" },
-                        { quality: "auto" },
-                        { fetch_format: "auto" }
-                    ]
-                },
-                (error, result) => {
-                    if (error) {
-                        console.error("Cloudinary Stream Error:", error);
-                        reject(new Error(typeof error === 'object' ? JSON.stringify(error) : String(error)));
-                    } else {
-                        resolve(result);
-                    }
-                }
-            );
-            uploadStream.end(buffer);
-        }) as any;
+        console.log("Starting Cloudinary upload for:", filename);
+
+        // Upload to Cloudinary using Base64 string
+        const uploadResult = await cloudinary.uploader.upload(base64Image, {
+            folder: "greenvalleyseeds",
+            public_id: filename.replace(/\.[^/.]+$/, ""),
+            resource_type: "image",
+            transformation: [
+                { width: 1200, height: 1200, crop: "limit" },
+                { quality: "auto" },
+                { fetch_format: "auto" }
+            ]
+        });
+
+        console.log("Cloudinary upload successful:", uploadResult.secure_url);
 
         return NextResponse.json({
             url: uploadResult.secure_url,
@@ -50,11 +51,14 @@ export async function POST(req: Request) {
         }, { status: 201 });
 
     } catch (error: any) {
-        console.error("CRITICAL UPLOAD ERROR:", error);
+        // Stringify the error to avoid [object Object] in logs
+        const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+        console.error("CRITICAL UPLOAD ERROR:", errorMessage);
+
         return NextResponse.json({
             error: "Upload failed",
-            details: error?.message || "Internal crash",
-            code: error?.http_code || 500
+            details: errorMessage,
+            code: error?.http_status || 500
         }, { status: 500 });
     }
 }
