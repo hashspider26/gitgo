@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(144 65% 10%);
+  --color-primary: hsl(144 65% 35%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-border: hsl(144 20% 90%);
+  --color-input: hsl(144 20% 90%);
+  --color-ring: hsl(144 65% 35%);
+}
+
+/* 
+   Simplifying to just base vars for now using v4 @theme syntax directly 
+   if possible, or just standard CSS vars.
+   Tailwind v4 theme works differently. 
+   For now, strictly importing tailwindcss.
+*/
+:root {
+  --background: 0 0% 100%;
+  --foreground: 144 65% 10%;
+  --border: 144 20% 90%;
+  --input: 144 20% 90%;
+  --ring: 144 65% 35%;
+  --radius: 0.75rem;
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+}
+
+/* Loading animations */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite linear;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    transparent 100%
+  );
+  background-size: 1000px 100%;
+}
+
+/* Hide scrollbar utility */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Cursor pointer for clickable elements */
+a, button, [role="button"], [onclick], input[type="submit"], input[type="button"], select, summary, details[open] summary {
+  cursor: pointer;
+}
+
+/* Disabled elements should not have pointer cursor */
+button:disabled, input:disabled, select:disabled, [aria-disabled="true"] {
+  cursor: not-allowed;
+}

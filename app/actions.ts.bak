@@ -1,0 +1,513 @@
+"use server";
+
+import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
+import bcrypt from "bcryptjs";
+import { Role } from "@prisma/client";
+
+// Auth Actions
+export async function registerUser(data: {
+    email: string;
+    password: string;
+    name: string;
+    username?: string;
+}) {
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+        where: { email: data.email },
+    });
+
+    if (existingUser) {
+        throw new Error("User with this email already exists");
+    }
+
+    // Check username uniqueness if provided
+    if (data.username) {
+        const existingUsername = await prisma.user.findUnique({
+            where: { username: data.username },
+        });
+
+        if (existingUsername) {
+            throw new Error("Username already taken");
+        }
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
+    // Create user without role
+    const user = await prisma.user.create({
+        data: {
+            email: data.email,
+            password: hashedPassword,
+            name: data.name,
+            username: data.username,
+            profileCompleted: false,
+            onboardingCompleted: false,
+        },
+    });
+
+    // Don't create page automatically - user will create pages from dashboard
+
+    return { success: true, userId: user.id };
+}
+
+export async function getUserById(userId: string) {
+    return await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+            id: true,
+            name: true,
+            username: true,
+            email: true,
+            bio: true,
+            avatarUrl: true,
+            coverImage: true,
+            instagram: true,
+            tiktok: true,
+            website: true,
+            followers: true,
+        },
+    });
+}
+
+// Product Actions
+export async function getProducts() {
+    return await prisma.product.findMany({
+        include: {
+            supplier: {
+                select: {
+                    id: true,
+                    name: true,
+                },
+            },
+            analytics: true,
+        },
+        orderBy: {
+            createdAt: "desc",
+        },
+    });
+}
+
+export async function getProductById(id: string) {
+    return await prisma.product.findUnique({
+        where: { id },
+        include: {
+            supplier: {
+                select: {
+                    id: true,
+                    name: true,
+                },
+            },
+            analytics: true,
+        },
+    });
+}
+
+// Page Actions (formerly Store Actions)
+export async function getPageByUsername(username: string) {
+    const user = await prisma.user.findUnique({
+        where: { username },
+        include: {
+            pages: {
+                include: {
+                    products: {
+                        include: {
+                            product: {
+                                include: {
+                                    supplier: {
+                                        select: {
+                                            id: true,
+                                            name: true,
+                                        },
+                                    },
+                                    analytics: true,
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    });
+
+    // Return the first STORE page (users can have max 1 store page)
+    return (user as any)?.pages.find((p: any) => p.pageType === 'STORE');
+}
+
+export async function getInfluencerData(username: string) {
+    return await prisma.user.findUnique({
+        where: { username },
+        include: {
+            pages: {
+                include: {
+                    products: {
+                        include: {
+                            product: true,
+                        },
+                    },
+                },
+            },
+        },
+    });
+}
+
+export async function addProductToPage(username: string, productId: string) {
+    const user = await prisma.user.findUnique({
+        where: { username },
+        include: { pages: true },
+    });
+
+    // Get the user's STORE page
+    const storePage = (user as any)?.pages.find((p: any) => p.pageType === 'STORE');
+
+    if (!user || !storePage) {
+        throw new Error("User or store page not found");
+    }
+
+    // Check if product already exists in page
+    const existingProduct = await prisma.pageProduct.findUnique({
+        where: {
+            pageId_productId: {
+                pageId: storePage.id,
+                productId,
+            },
+        },
+    });
+
+    if (existingProduct) {
+        // Product already in page, just return without error
+        return;
+    }
+
+    await prisma.pageProduct.create({
+        data: {
+            pageId: storePage.id,
+            productId,
+        },
+    });
+
+    revalidatePath("/store/dashboard/store");
+    revalidatePath("/store/dashboard");
+    revalidatePath("/products");
+}
+
+export async function removeProductFromPage(username: string, productId: string) {
+    const user = await prisma.user.findUnique({
+        where: { username },
+        include: { pages: true },
+    });
+
+    // Get the user's STORE page
+    const storePage = (user as any)?.pages.find((p: any) => p.pageType === 'STORE');
+
+    if (!user || !storePage) {
+        throw new Error("User or store page not found");
+    }
+
+    await prisma.pageProduct.deleteMany({
+        where: {
+            pageId: storePage.id,
+            productId,
+        },
+    });
+
+    revalidatePath("/store/dashboard/store");
+    revalidatePath("/store/dashboard");
+}
+
+// Analytics Actions
+export async function getAnalytics() {
+    return await prisma.analytics.findMany({
+        include: {
+            product: true,
+        },
+    });
+}
+
+export async function getAnalyticsForProducts(productIds: string[]) {
+    return await prisma.analytics.findMany({
+        where: {
+            productId: {
+                in: productIds,
+            },
+        },
+        include: {
+            product: true,
+        },
+    });
+}
+
+// User/Page Actions
+export async function updatePageDetails(
+    username: string,
+    data: { name: string; bio?: string; bannerUrl?: string; theme?: string }
+) {
+    const user = await prisma.user.findUnique({
+        where: { username },
+        include: { pages: true },
+    });
+
+    // Get the user's STORE page
+    const storePage = (user as any)?.pages.find((p: any) => p.pageType === 'STORE');
+
+    if (!user || !storePage) {
+        throw new Error("User or store page not found");
+    }
+
+    await prisma.user.update({
+        where: { username },
+        data: {
+            name: data.name,
+            bio: data.bio,
+        },
+    });
+
+    // Update page banner and theme
+    await prisma.page.update({
+        where: { id: storePage.id },
+        data: {
+            bannerUrl: data.bannerUrl,
+            theme: data.theme,
+        },
+    });
+
+    revalidatePath("/store/dashboard/store");
+    revalidatePath(`/${username}`);
+}
+
+// User Actions
+export async function getUserByUsername(username: string) {
+    return await prisma.user.findUnique({
+        where: { username },
+        include: {
+            pages: {
+                include: {
+                    products: {
+                        include: {
+                            product: true,
+                        },
+                    },
+                },
+            },
+        },
+    });
+}
+
+export async function updateUserSettings(
+    username: string,
+    data: {
+        name?: string;
+        bio?: string;
+        bannerUrl?: string;
+        instagram?: string;
+        tiktok?: string;
+    }
+) {
+    await prisma.user.update({
+        where: { username },
+        data,
+    });
+
+    revalidatePath("/store/dashboard/settings");
+}
+
+// Profile Management Actions
+export async function updateUserProfile(
+    userId: string,
+    data: {
+        name?: string;
+        bio?: string;
+        avatarUrl?: string;
+        coverImage?: string;
+        instagram?: string;
+        tiktok?: string;
+        website?: string;
+    }
+) {
+    await prisma.user.update({
+        where: { id: userId },
+        data,
+    });
+
+    revalidatePath("/dashboard/profile");
+    revalidatePath("/onboarding");
+}
+
+export async function completeOnboarding(userId: string) {
+    await prisma.user.update({
+        where: { id: userId },
+        data: {
+            onboardingCompleted: true,
+            profileCompleted: true,
+        },
+    });
+
+    revalidatePath("/onboarding");
+    revalidatePath("/dashboard");
+}
+
+export async function checkProfileCompletion(userId: string) {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+            profileCompleted: true,
+            onboardingCompleted: true,
+        },
+    });
+
+    return user;
+}
+
+// Page Creation Actions
+export async function createPage(
+    userId: string,
+    data: {
+        name: string;
+        slug: string;
+        pageType: 'STORE' | 'SUPPLIER';
+        bannerUrl?: string;
+        theme?: string;
+        description?: string;
+    }
+) {
+    // Check if user already has a page of this type
+    const existingUserPages = await prisma.page.findMany({
+        where: {
+            userId,
+            pageType: data.pageType,
+        },
+    });
+
+    if (existingUserPages.length > 0) {
+        throw new Error(`You already have a ${data.pageType.toLowerCase()} page`);
+    }
+
+    // Validate slug format (alphanumeric and hyphens only)
+    const slugRegex = /^[a-z0-9-]+$/;
+    if (!slugRegex.test(data.slug)) {
+        throw new Error("URL slug can only contain lowercase letters, numbers, and hyphens");
+    }
+
+    // Check if slug matches any existing username (to avoid conflicts with profile routes)
+    const existingUserWithSlug = await prisma.user.findUnique({
+        where: { username: data.slug },
+    });
+
+    if (existingUserWithSlug) {
+        throw new Error("This URL is reserved by a user profile");
+    }
+
+    // Check if slug is already taken by another page
+    const existingPage = await prisma.page.findUnique({
+        where: { slug: data.slug },
+    });
+
+    if (existingPage) {
+        throw new Error("This page URL is already taken");
+    }
+
+    await prisma.page.create({
+        data: {
+            userId,
+            name: data.name,
+            slug: data.slug,
+            pageType: data.pageType,
+            bannerUrl: data.bannerUrl,
+            theme: data.theme || "default",
+            description: data.description,
+        },
+    });
+
+    revalidatePath("/dashboard/pages");
+    revalidatePath(`/page/${data.slug}`);
+}
+
+export async function getUserPages(userId: string) {
+    return await prisma.page.findMany({
+        where: { userId },
+        include: {
+            products: {
+                include: {
+                    product: true,
+                },
+            },
+        },
+        orderBy: {
+            createdAt: 'desc',
+        },
+    });
+}
+
+export async function getPageBySlug(slug: string) {
+    return await prisma.page.findUnique({
+        where: { slug },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    name: true,
+                    username: true,
+                    bio: true,
+                    avatarUrl: true,
+                },
+            },
+            products: {
+                include: {
+                    product: {
+                        include: {
+                            supplier: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                },
+                            },
+                            analytics: true,
+                        },
+                    },
+                },
+            },
+        },
+    });
+}
+
+export async function updatePage(
+    pageId: string,
+    data: {
+        name?: string;
+        bannerUrl?: string;
+        theme?: string;
+        description?: string;
+    }
+) {
+    await prisma.page.update({
+        where: { id: pageId },
+        data,
+    });
+
+    const page = await prisma.page.findUnique({
+        where: { id: pageId },
+        select: { slug: true },
+    });
+
+    if (page) {
+        revalidatePath(`/page/${page.slug}`);
+    }
+    revalidatePath("/dashboard/pages");
+}
+
+export async function deletePage(pageId: string) {
+    const page = await prisma.page.findUnique({
+        where: { id: pageId },
+        select: { slug: true },
+    });
+
+    await prisma.page.delete({
+        where: { id: pageId },
+    });
+
+    if (page) {
+        revalidatePath(`/page/${page.slug}`);
+    }
+    revalidatePath("/dashboard/pages");
+}

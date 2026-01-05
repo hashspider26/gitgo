@@ -1,0 +1,19 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Plant/Sprout Icon for Favicon -->
+  <!-- Stem -->
+  <path d="M16 10V22" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round"/>
+  
+  <!-- Left leaf -->
+  <path d="M12 14C10 12 8 14 8 16C8 17.1046 8.89543 18 10 18C11.1046 18 12 17.1046 12 16" stroke="#22c55e" stroke-width="2" stroke-linecap="round" fill="#86efac" fill-opacity="0.4"/>
+  
+  <!-- Right leaf -->
+  <path d="M20 14C22 12 24 14 24 16C24 17.1046 23.1046 18 22 18C20.8954 18 20 17.1046 20 16" stroke="#22c55e" stroke-width="2" stroke-linecap="round" fill="#86efac" fill-opacity="0.4"/>
+  
+  <!-- Top sprout (two small leaves) -->
+  <circle cx="14" cy="10" r="2" fill="#22c55e"/>
+  <circle cx="18" cy="10" r="2" fill="#22c55e"/>
+  
+  <!-- Center top leaf -->
+  <circle cx="16" cy="8" r="1.5" fill="#86efac"/>
+</svg>
+
