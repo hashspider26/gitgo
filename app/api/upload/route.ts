@@ -52,23 +52,28 @@ export async function POST(req: Request) {
                     ]
                 },
                 (error, result) => {
-                    if (error) reject(error);
-                    else resolve(result);
+                    if (error) {
+                        console.error("Cloudinary Stream Error:", error);
+                        reject(new Error(typeof error === 'object' ? JSON.stringify(error) : String(error)));
+                    } else {
+                        resolve(result);
+                    }
                 }
             );
             uploadStream.end(processedBuffer);
         }) as any;
 
-        return NextResponse.json({ 
+        return NextResponse.json({
             url: uploadResult.secure_url,
             public_id: uploadResult.public_id
         }, { status: 201 });
 
-    } catch (error) {
-        console.error("Upload error:", error);
-        return NextResponse.json({ 
-            error: "Failed to upload file.",
-            details: error instanceof Error ? error.message : "Unknown error"
+    } catch (error: any) {
+        console.error("CRITICAL UPLOAD ERROR:", error);
+        return NextResponse.json({
+            error: "Upload failed",
+            details: error?.message || "Internal crash",
+            code: error?.http_code || 500
         }, { status: 500 });
     }
 }
