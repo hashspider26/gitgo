@@ -18,6 +18,7 @@ interface AddToCartProps {
         weight?: number;
     };
     showQuantitySelector?: boolean;
+    quantity?: number;
     className?: string;
     variant?: "default" | "outline" | "ghost";
     size?: "default" | "sm" | "lg" | "icon";
@@ -26,13 +27,16 @@ interface AddToCartProps {
 export function AddToCart({
     product,
     showQuantitySelector = false,
+    quantity: externalQuantity,
     className,
     variant = "default",
     size = "default"
 }: AddToCartProps) {
-    const [quantity, setQuantity] = useState(1);
+    const [internalQuantity, setInternalQuantity] = useState(1);
     const [isAdding, setIsAdding] = useState(false);
     const addItem = useCartStore((state) => state.addItem);
+
+    const activeQuantity = externalQuantity !== undefined ? externalQuantity : internalQuantity;
 
     const handleAddToCart = async () => {
         setIsAdding(true);
@@ -45,12 +49,14 @@ export function AddToCart({
             price: product.price,
             image: product.image,
             slug: product.slug,
-            quantity: quantity,
+            quantity: activeQuantity,
             deliveryFee: product.deliveryFee,
             weight: product.weight
         });
         setIsAdding(false);
-        setQuantity(1); // reset quantity after adding
+        if (externalQuantity === undefined) {
+            setInternalQuantity(1); // reset internal quantity only
+        }
     };
 
     if (showQuantitySelector) {
@@ -62,17 +68,17 @@ export function AddToCart({
                             variant="ghost"
                             size="icon"
                             className="h-10 w-10 rounded-l-lg hover:bg-zinc-200 dark:hover:bg-zinc-800"
-                            onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                            disabled={quantity <= 1}
+                            onClick={() => setInternalQuantity(Math.max(1, activeQuantity - 1))}
+                            disabled={activeQuantity <= 1}
                         >
                             <Minus className="h-4 w-4" />
                         </Button>
-                        <span className="w-10 text-center font-medium">{quantity}</span>
+                        <span className="w-10 text-center font-medium">{activeQuantity}</span>
                         <Button
                             variant="ghost"
                             size="icon"
                             className="h-10 w-10 rounded-r-lg hover:bg-zinc-200 dark:hover:bg-zinc-800"
-                            onClick={() => setQuantity(quantity + 1)}
+                            onClick={() => setInternalQuantity(activeQuantity + 1)}
                         >
                             <Plus className="h-4 w-4" />
                         </Button>

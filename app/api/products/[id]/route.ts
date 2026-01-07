@@ -1,14 +1,34 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
 import { cloudinary, extractPublicId } from "@/lib/cloudinary";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
     try {
-        const product = await prisma.product.findUnique({
-            where: { id: params.id },
-        });
-        if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 });
+        const products = await prisma.$queryRaw`SELECT * FROM "Product" WHERE id = ${params.id} LIMIT 1` as any[];
+
+        if (!products || products.length === 0) {
+            return NextResponse.json({ error: "Product not found" }, { status: 404 });
+        }
+
+        const rawProduct = products[0];
+        const getVal = (key: string) => {
+            const lowerKey = key.toLowerCase();
+            const actualKey = Object.keys(rawProduct).find(k => k.toLowerCase() === lowerKey);
+            return actualKey ? rawProduct[actualKey] : undefined;
+        };
+
+        // Normalize the product object for the frontend
+        const product = {
+            ...rawProduct,
+            id: getVal('id'),
+            price: Number(getVal('price')),
+            stock: Number(getVal('stock') || 0),
+            deliveryFee: Number(getVal('deliveryFee') || 0),
+            weight: Number(getVal('weight') || 0),
+            advanceDiscount: Number(getVal('advanceDiscount') || 0),
+            advanceDiscountType: getVal('advanceDiscountType') || 'PKR'
+        };
+
         return NextResponse.json(product);
     } catch (error) {
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
@@ -18,22 +38,33 @@ export async function GET(request: Request, { params }: { params: { id: string }
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
     try {
         const body = await request.json();
-        const product = await prisma.product.update({
-            where: { id: params.id },
-            data: {
-                title: body.title,
-                description: body.description,
-                price: Number(body.price),
-                salePrice: body.salePrice ? Number(body.salePrice) : null,
-                category: body.category,
-                stock: Number(body.stock),
-                images: JSON.stringify(body.images || []),
-                isFeatured: body.isFeatured,
-                weight: body.weight ? Number(body.weight) : undefined,
-                deliveryFee: body.deliveryFee ? Number(body.deliveryFee) : undefined,
-            }
-        });
-        return NextResponse.json(product);
+        const images = JSON.stringify(body.images || []);
+        const price = Number(body.price);
+        const stock = Number(body.stock);
+        const weight = Number(body.weight || 0);
+        const deliveryFee = Number(body.deliveryFee || 0);
+        const advanceDiscount = Number(body.advanceDiscount || 0);
+        const advanceDiscountType = body.advanceDiscountType || "PKR";
+
+        console.log("Updating product:", params.id, { advanceDiscount, advanceDiscountType });
+
+        await prisma.$executeRaw`
+            UPDATE "Product" 
+            SET title = ${body.title}, 
+                description = ${body.description}, 
+                price = ${price}, 
+                category = ${body.category}, 
+                stock = ${stock}, 
+                images = ${images},
+                weight = ${weight},
+                deliveryFee = ${deliveryFee},
+                advanceDiscount = ${advanceDiscount},
+                advanceDiscountType = ${advanceDiscountType},
+                updatedAt = ${new Date().toISOString()}
+            WHERE id = ${params.id}
+        `;
+
+        return NextResponse.json({ success: true });
     } catch (error) {
         return NextResponse.json({ error: "Failed to update product" }, { status: 500 });
     }

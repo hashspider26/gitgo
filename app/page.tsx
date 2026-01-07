@@ -14,14 +14,14 @@ export const revalidate = 0; // Ensure fresh data on every request
 
 export default async function Home() {
   const featuredProducts = await prisma.product.findMany({
-    where: { isFeatured: true },
-    take: 4,
+    orderBy: { createdAt: 'desc' },
+    take: 3,
   });
 
   return (
     <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
-      <section className="relative w-full bg-stone-100 py-20 px-4 md:py-32 dark:bg-zinc-900 overflow-hidden">
+      <section className="relative w-full bg-stone-100 px-4 dark:bg-zinc-900 overflow-hidden min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center">
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <svg className="h-full w-full text-primary" viewBox="0 0 100 100" preserveAspectRatio="none">
             <path d="M0 100 C 20 0 50 0 100 100 Z" fill="currentColor" />

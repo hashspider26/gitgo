@@ -1,74 +1,77 @@
 import { NextResponse } from "next/server";
-import sharp from "sharp";
 import { cloudinary } from "@/lib/cloudinary";
+import { Readable } from "stream";
+
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
+    console.log("Upload request received");
+
     try {
+        // Check for required credentials
+        const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+        const apiKey = process.env.CLOUDINARY_API_KEY;
+        const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+        if (!cloudName || !apiKey || !apiSecret) {
+            console.error("Cloudinary credentials missing from environment");
+            return NextResponse.json({
+                error: "Cloudinary configuration missing.",
+                details: "Server-side environment variables are not set for Cloudinary."
+            }, { status: 500 });
+        }
+
         const formData = await req.formData();
         const file = formData.get("file") as File;
 
         if (!file) {
+            console.error("Upload error: No file in form data");
             return NextResponse.json({ error: "No file received." }, { status: 400 });
         }
 
-        // Check if file is an image
-        const isImage = file.type.startsWith("image/");
-        if (!isImage) {
-            return NextResponse.json({ error: "File must be an image." }, { status: 400 });
-        }
+        console.log("File received:", file.name, file.size, file.type);
 
         const buffer = Buffer.from(await file.arrayBuffer());
-        const filename = Date.now() + "_" + file.name.replaceAll(" ", "_").replace(/[^a-zA-Z0-9._-]/g, "_");
 
-        let processedBuffer: Buffer;
+        console.log("Starting Cloudinary streaming upload...");
 
-        // Process image with sharp to reduce size
-        try {
-            // Resize and compress image
-            // Max width: 1200px, Max height: 1200px, Quality: 85%
-            processedBuffer = await sharp(buffer)
-                .resize(1200, 1200, {
-                    fit: "inside",
-                    withoutEnlargement: true,
-                })
-                .jpeg({ quality: 85, mozjpeg: true })
-                .toBuffer();
-        } catch (error) {
-            // If sharp processing fails, use original buffer
-            console.warn("Image processing failed, using original:", error);
-            processedBuffer = buffer;
-        }
-
-        // Upload to Cloudinary
         const uploadResult = await new Promise((resolve, reject) => {
             const uploadStream = cloudinary.uploader.upload_stream(
                 {
                     folder: "greenvalleyseeds",
-                    public_id: filename.replace(/\.[^/.]+$/, ""), // Remove extension
-                    resource_type: "image",
-                    transformation: [
-                        { quality: "auto" },
-                        { fetch_format: "auto" }
-                    ]
+                    resource_type: "auto",
                 },
                 (error, result) => {
-                    if (error) reject(error);
-                    else resolve(result);
+                    if (error) {
+                        console.error("Cloudinary Stream Error:", error);
+                        reject(error);
+                    } else {
+                        resolve(result);
+                    }
                 }
             );
-            uploadStream.end(processedBuffer);
+
+            const s = new Readable();
+            s.push(buffer);
+            s.push(null);
+            s.pipe(uploadStream);
         }) as any;
 
-        return NextResponse.json({ 
+        console.log("Cloudinary upload successful:", uploadResult.secure_url);
+
+        return NextResponse.json({
             url: uploadResult.secure_url,
             public_id: uploadResult.public_id
         }, { status: 201 });
 
-    } catch (error) {
-        console.error("Upload error:", error);
-        return NextResponse.json({ 
-            error: "Failed to upload file.",
-            details: error instanceof Error ? error.message : "Unknown error"
+    } catch (error: any) {
+        const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+        console.error("CRITICAL UPLOAD ERROR:", errorMessage);
+
+        return NextResponse.json({
+            error: "Upload failed",
+            details: errorMessage,
+            code: error?.http_status || 500
         }, { status: 500 });
     }
 }

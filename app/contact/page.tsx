@@ -136,10 +136,10 @@ export default function ContactPage() {
                                     <Clock className="h-6 w-6 text-primary" />
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-zinc-900 dark:text-white mb-1">Business Hours</h3>
+                                    <h3 className="font-semibold text-zinc-900 dark:text-white mb-1">Support Available</h3>
                                     <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                                        Monday - Saturday<br />
-                                        9:00 AM - 6:00 PM PKT
+                                        24/7 Hours<br />
+                                        Fast Response Time
                                     </p>
                                 </div>
                             </div>
@@ -170,113 +170,113 @@ export default function ContactPage() {
                                             <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
                                         </div>
                                     )}
-                                <form onSubmit={handleSubmit} className="space-y-6">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <form onSubmit={handleSubmit} className="space-y-6">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                            <div className="space-y-2">
+                                                <label htmlFor="name" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                                                    Your Name *
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="name"
+                                                    name="name"
+                                                    required
+                                                    value={formData.name}
+                                                    onChange={handleChange}
+                                                    className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black px-4 py-3 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none transition-all"
+                                                    placeholder="Enter your name"
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label htmlFor="email" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                                                    Email Address *
+                                                </label>
+                                                <input
+                                                    type="email"
+                                                    id="email"
+                                                    name="email"
+                                                    required
+                                                    value={formData.email}
+                                                    onChange={handleChange}
+                                                    className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black px-4 py-3 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none transition-all"
+                                                    placeholder="Enter your email address"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                            <div className="space-y-2">
+                                                <label htmlFor="phone" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                                                    Phone Number
+                                                </label>
+                                                <input
+                                                    type="tel"
+                                                    id="phone"
+                                                    name="phone"
+                                                    value={formData.phone}
+                                                    onChange={handleChange}
+                                                    className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black px-4 py-3 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none transition-all"
+                                                    placeholder="Enter your phone number"
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label htmlFor="subject" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                                                    Subject *
+                                                </label>
+                                                <select
+                                                    id="subject"
+                                                    name="subject"
+                                                    required
+                                                    value={formData.subject}
+                                                    onChange={handleChange}
+                                                    className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black px-4 py-3 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none transition-all"
+                                                >
+                                                    <option value="">Select a subject</option>
+                                                    <option value="general">General Inquiry</option>
+                                                    <option value="product">Product Question</option>
+                                                    <option value="order">Order Support</option>
+                                                    <option value="partnership">Partnership</option>
+                                                    <option value="feedback">Feedback</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
                                         <div className="space-y-2">
-                                            <label htmlFor="name" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                                                Your Name *
+                                            <label htmlFor="message" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                                                Message *
                                             </label>
-                                            <input
-                                                type="text"
-                                                id="name"
-                                                name="name"
+                                            <textarea
+                                                id="message"
+                                                name="message"
                                                 required
-                                                value={formData.name}
+                                                value={formData.message}
                                                 onChange={handleChange}
-                                                className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black px-4 py-3 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none transition-all"
-                                                placeholder="Enter your name"
+                                                rows={6}
+                                                className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black px-4 py-3 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none transition-all resize-none"
+                                                placeholder="Enter your message"
                                             />
                                         </div>
 
-                                        <div className="space-y-2">
-                                            <label htmlFor="email" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                                                Email Address *
-                                            </label>
-                                            <input
-                                                type="email"
-                                                id="email"
-                                                name="email"
-                                                required
-                                                value={formData.email}
-                                                onChange={handleChange}
-                                                className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black px-4 py-3 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none transition-all"
-                                                placeholder="Enter your email address"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                        <div className="space-y-2">
-                                            <label htmlFor="phone" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                                                Phone Number
-                                            </label>
-                                            <input
-                                                type="tel"
-                                                id="phone"
-                                                name="phone"
-                                                value={formData.phone}
-                                                onChange={handleChange}
-                                                className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black px-4 py-3 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none transition-all"
-                                                placeholder="Enter your phone number"
-                                            />
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <label htmlFor="subject" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                                                Subject *
-                                            </label>
-                                            <select
-                                                id="subject"
-                                                name="subject"
-                                                required
-                                                value={formData.subject}
-                                                onChange={handleChange}
-                                                className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black px-4 py-3 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none transition-all"
-                                            >
-                                                <option value="">Select a subject</option>
-                                                <option value="general">General Inquiry</option>
-                                                <option value="product">Product Question</option>
-                                                <option value="order">Order Support</option>
-                                                <option value="partnership">Partnership</option>
-                                                <option value="feedback">Feedback</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <label htmlFor="message" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                                            Message *
-                                        </label>
-                                        <textarea
-                                            id="message"
-                                            name="message"
-                                            required
-                                            value={formData.message}
-                                            onChange={handleChange}
-                                            rows={6}
-                                            className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black px-4 py-3 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none transition-all resize-none"
-                                            placeholder="Enter your message"
-                                        />
-                                    </div>
-
-                                    <Button
-                                        type="submit"
-                                        disabled={submitting}
-                                        className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/20"
-                                    >
-                                        {submitting ? (
-                                            <>
-                                                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                                                Sending...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Send className="mr-2 h-5 w-5" />
-                                                Send Message
-                                            </>
-                                        )}
-                                    </Button>
-                                </form>
+                                        <Button
+                                            type="submit"
+                                            disabled={submitting}
+                                            className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/20"
+                                        >
+                                            {submitting ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                                                    Sending...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Send className="mr-2 h-5 w-5" />
+                                                    Send Message
+                                                </>
+                                            )}
+                                        </Button>
+                                    </form>
                                 </>
                             )}
                         </div>
@@ -302,7 +302,7 @@ export default function ContactPage() {
                             },
                             {
                                 q: "Can I return products?",
-                                a: "Yes, we have a 14-day return policy for unopened products. Please contact us for return instructions."
+                                a: "Yes, we offer returns for quality assurance. Please contact us for instructions based on your specific case."
                             },
                             {
                                 q: "Do you provide gardening advice?",

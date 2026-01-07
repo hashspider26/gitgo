@@ -32,7 +32,8 @@ export function OrderStatusManager({ orderId, currentStatus }: { orderId: string
                 setStatus(newStatus);
                 router.refresh();
             } else {
-                alert("Failed to update status");
+                const data = await res.json();
+                alert(`Failed to update status: ${data.details || data.error || "Unknown error"}`);
             }
         } catch (error) {
             console.error(error);

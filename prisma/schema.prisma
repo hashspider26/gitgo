@@ -3,6 +3,7 @@
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
+  output          = "../generated/client"
 }
 
 datasource db {
@@ -47,16 +48,23 @@ model Product {
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  advanceDiscount     Int    @default(0)
+  advanceDiscountType String @default("PKR") // "PKR" or "PERCENT"
 }
 
 model Order {
   id            String   @id @default(cuid())
+  readableId    String?  @unique
   customerName  String
   phone         String
   address       String
   city          String
   totalAmount   Int
+  paymentMethod String   @default("COD") // "COD" or "ADVANCE"
+  discountAmount Int     @default(0)
   status        String   @default("PENDING")
+  stockDeducted Boolean  @default(false)
   userId        String?
   
   items         OrderItem[]
@@ -116,10 +124,11 @@ model VerificationToken {
 }
 
 model Category {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String   @unique
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model ContactMessage {

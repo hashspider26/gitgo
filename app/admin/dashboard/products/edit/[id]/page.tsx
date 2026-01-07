@@ -1,11 +1,9 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Upload, X } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 
 export default function EditProductPage({ params }: { params: { id: string } }) {
     const router = useRouter();
@@ -22,10 +20,17 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     const [weight, setWeight] = useState("");
     const [deliveryFee, setDeliveryFee] = useState("");
     const [category, setCategory] = useState("");
+    const [advanceDiscount, setAdvanceDiscount] = useState("0");
+    const [advanceDiscountType, setAdvanceDiscountType] = useState("PKR");
     const [categories, setCategories] = useState<{ id: string, name: string }[]>([]);
 
+    const isFormValid = title.trim() !== "" &&
+        description.trim() !== "" &&
+        price !== "" &&
+        category !== "" &&
+        images.length > 0;
+
     useEffect(() => {
-        // Fetch categories
         fetch("/api/categories")
             .then(res => res.json())
             .then(data => setCategories(data))
@@ -46,16 +51,15 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                 setWeight((product.weight || 0).toString());
                 setDeliveryFee((product.deliveryFee || 0).toString());
                 setCategory(product.category);
+                setAdvanceDiscount((product.advanceDiscount || 0).toString());
+                setAdvanceDiscountType(product.advanceDiscountType || "PKR");
 
-                // Parse images safely
                 try {
                     const parsedImages = product.images ? JSON.parse(product.images) : [];
                     if (Array.isArray(parsedImages)) setImages(parsedImages);
                 } catch (e) {
-                    // Fallback if images is not valid JSON
                     setImages([]);
                 }
-
             } catch (error) {
                 console.error(error);
                 alert("Error loading product");
@@ -70,8 +74,14 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
         if (!e.target.files || e.target.files.length === 0) return;
 
-        setUploading(true);
         const file = e.target.files[0];
+
+        if (file.size > 10 * 1024 * 1024) {
+            alert("File is too large! Please upload as image smaller than 10MB.");
+            return;
+        }
+
+        setUploading(true);
         const formData = new FormData();
         formData.append("file", file);
 
@@ -81,13 +91,16 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                 body: formData,
             });
 
-            if (!res.ok) throw new Error("Upload failed");
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.details || errorData.error || "Upload failed");
+            }
 
             const data = await res.json();
             setImages((prev) => [...prev, data.url]);
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert("Failed to upload image");
+            alert(`Upload Error: ${error.message}`);
         } finally {
             setUploading(false);
         }
@@ -99,6 +112,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
+        if (!isFormValid) return;
         setSubmitting(true);
 
         try {
@@ -108,14 +122,14 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                 body: JSON.stringify({
                     title,
                     description,
-                    price,
-                    stock,
-                    weight,
-                    deliveryFee,
+                    price: Math.floor(Number(price || "0")),
+                    stock: Math.floor(Number(stock || "0")),
+                    weight: Math.floor(Number(weight || "0")),
+                    deliveryFee: Math.floor(Number(deliveryFee || "0")),
                     category,
-                    images: images // API expects array and stringifies it but let's check API.. 
-                    // Wait, APi route says: objects: JSON.stringify(body.images || [])
-                    // So we can send the array directly.
+                    images: images,
+                    advanceDiscount: Math.floor(Number(advanceDiscount || "0")),
+                    advanceDiscountType
                 }),
             });
 
@@ -152,14 +166,14 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                     <h1 className="text-xl font-bold mb-6 text-zinc-900 dark:text-white">Edit Product</h1>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Title</label>
+                            <label className="text-sm font-medium">Title *</label>
                             <input
                                 value={title} onChange={e => setTitle(e.target.value)}
                                 required className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Description</label>
+                            <label className="text-sm font-medium">Description *</label>
                             <textarea
                                 value={description} onChange={e => setDescription(e.target.value)}
                                 required rows={3} className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
@@ -168,7 +182,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
 
                         {/* Image Upload Section */}
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Product Images</label>
+                            <label className="text-sm font-medium">Product Images * ({images.length} added)</label>
                             <div className="flex flex-wrap gap-4 mb-2">
                                 {images.map((url, idx) => (
                                     <div key={idx} className="relative w-24 h-24 border rounded-md overflow-hidden bg-zinc-100">
@@ -199,7 +213,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Price (PKR)</label>
+                                <label className="text-sm font-medium">Price (PKR) *</label>
                                 <input
                                     type="number" value={price} onChange={e => setPrice(e.target.value)}
                                     required className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
@@ -213,6 +227,42 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                                 />
                             </div>
                         </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-blue-600 dark:text-blue-400 font-bold">Advance Payment Discount</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="number"
+                                        value={advanceDiscount}
+                                        onChange={e => setAdvanceDiscount(e.target.value)}
+                                        className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 font-bold"
+                                    />
+                                    <select
+                                        value={advanceDiscountType}
+                                        onChange={e => setAdvanceDiscountType(e.target.value)}
+                                        className="rounded-md border border-zinc-200 px-2 py-2 text-xs focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 font-bold"
+                                    >
+                                        <option value="PKR">PKR</option>
+                                        <option value="PERCENT">%</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Category *</label>
+                                <select
+                                    value={category} onChange={e => setCategory(e.target.value)}
+                                    required
+                                    className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                                >
+                                    <option value="">Select Category</option>
+                                    {categories.map((c) => (
+                                        <option key={c.id} value={c.name}>{c.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Weight (grams)</label>
@@ -229,25 +279,14 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                                 />
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Category</label>
-                            <select
-                                value={category} onChange={e => setCategory(e.target.value)}
-                                className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
-                            >
-                                {categories.map((c) => (
-                                    <option key={c.id} value={c.name}>{c.name}</option>
-                                ))}
-                            </select>
-                        </div>
 
                         <button
                             type="submit"
-                            disabled={submitting}
-                            className="w-full mt-4 h-10 rounded-md bg-primary text-white font-medium hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2"
+                            disabled={submitting || !isFormValid}
+                            className="w-full mt-6 h-12 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 disabled:opacity-30 disabled:grayscale transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
                         >
                             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                            Update Product
+                            {!isFormValid ? "Please fill all fields & add image" : "Update Product"}
                         </button>
                     </form>
                 </div>

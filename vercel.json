@@ -4,8 +4,5 @@
   "installCommand": "npm install",
   "regions": [
     "iad1"
-  ],
-  "env": {
-    "PRISMA_GENERATE_DATAPROXY": "true"
-  }
+  ]
 }

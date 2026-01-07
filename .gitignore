@@ -46,3 +46,4 @@ schema.sql
 setup-turso.ts
 test-import.js
 test-import.ts
+/generated/

@@ -8,11 +8,28 @@ export async function GET(request: Request) {
     const category = searchParams.get("category");
 
     try {
-        const products = await prisma.product.findMany({
-            where: category ? { category } : undefined,
-            orderBy: { createdAt: 'desc' },
-        });
-        return NextResponse.json(products);
+        let products;
+        if (category) {
+            products = await prisma.$queryRaw`SELECT * FROM "Product" WHERE category = ${category} ORDER BY createdAt DESC`;
+        } else {
+            products = await prisma.$queryRaw`SELECT * FROM "Product" ORDER BY createdAt DESC`;
+        }
+        return NextResponse.json((products as any[]).map(p => {
+            const getVal = (key: string) => {
+                const lowerKey = key.toLowerCase();
+                const actualKey = Object.keys(p).find(k => k.toLowerCase() === lowerKey);
+                return actualKey ? p[actualKey] : undefined;
+            };
+            return {
+                ...p,
+                id: getVal('id'),
+                price: Number(getVal('price')),
+                deliveryFee: Number(getVal('deliveryFee') || 0),
+                weight: Number(getVal('weight') || 0),
+                advanceDiscount: Number(getVal('advanceDiscount') || 0),
+                advanceDiscountType: getVal('advanceDiscountType') || 'PKR'
+            };
+        }));
     } catch (error) {
         return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 });
     }
@@ -25,22 +42,36 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const product = await prisma.product.create({
-            data: {
-                title: body.title,
-                slug: body.slug,
-                description: body.description,
-                price: Number(body.price),
-                salePrice: body.salePrice ? Number(body.salePrice) : null,
-                category: body.category,
-                stock: Number(body.stock),
-                images: JSON.stringify(body.images || []),
-                isFeatured: body.isFeatured || false,
-                deliveryFee: body.deliveryFee ? Number(body.deliveryFee) : 0,
-                weight: body.weight ? Number(body.weight) : 0,
-            }
-        });
-        return NextResponse.json(product);
+        const productId = `prod_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        const now = new Date().toISOString();
+
+        await prisma.$executeRaw`
+            INSERT INTO "Product" (
+                id, title, slug, description, price, salePrice, category, 
+                stock, images, isFeatured, deliveryFee, weight, 
+                advanceDiscount, advanceDiscountType, createdAt, updatedAt
+            )
+            VALUES (
+                ${productId}, 
+                ${body.title}, 
+                ${body.slug}, 
+                ${body.description}, 
+                ${Number(body.price)}, 
+                ${body.salePrice ? Number(body.salePrice) : null}, 
+                ${body.category}, 
+                ${Number(body.stock)}, 
+                ${JSON.stringify(body.images || [])}, 
+                ${body.isFeatured ? 1 : 0}, 
+                ${Number(body.deliveryFee || 0)}, 
+                ${Number(body.weight || 0)}, 
+                ${Number(body.advanceDiscount || 0)}, 
+                ${body.advanceDiscountType || "PKR"}, 
+                ${now}, 
+                ${now}
+            )
+        `;
+
+        return NextResponse.json({ id: productId, success: true });
     } catch (error: any) {
         console.error("Product creation failed:", error);
         return NextResponse.json({

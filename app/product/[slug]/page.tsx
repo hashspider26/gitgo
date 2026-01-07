@@ -131,39 +131,9 @@ export default async function ProductPage({ params }: Props) {
                         </div>
 
                         <div className="space-y-6 mt-auto">
-                            <div className="flex items-center gap-4 p-4 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-100 dark:border-zinc-800">
-                                <div className="h-10 w-10 bg-white dark:bg-black rounded-full flex items-center justify-center border border-zinc-200 dark:border-zinc-800 text-green-600">
-                                    <Truck className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <p className="font-semibold text-sm">
-                                        {(p.deliveryFee || 0) === 0
-                                            ? "Free Delivery"
-                                            : `Delivery Fee: ${formatPrice(p.deliveryFee)}`
-                                        }
-                                    </p>
-                                    <p className="text-xs text-zinc-500">
-                                        {(p.deliveryFee || 0) === 0
-                                            ? "Free shipping on this item"
-                                            : "Standard delivery charges apply"
-                                        }
-                                    </p>
-                                </div>
-                            </div>
 
-                            <div className="flex items-center gap-4 p-4 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-100 dark:border-zinc-800">
-                                <div className="h-10 w-10 bg-white dark:bg-black rounded-full flex items-center justify-center border border-zinc-200 dark:border-zinc-800 text-blue-600">
-                                    <Shield className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <p className="font-semibold text-sm">
-                                        14-Day Return Policy
-                                    </p>
-                                    <p className="text-xs text-zinc-500">
-                                        Return unopened products within 14 days for a full refund
-                                    </p>
-                                </div>
-                            </div>
+
+
 
                             <ProductActions
                                 product={{
