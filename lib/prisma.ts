@@ -22,7 +22,7 @@ const getPrismaClient = () => {
         });
         const adapter = new PrismaLibSQL(libsql);
 
-        return new PrismaClient({ adapter });
+        return new PrismaClient({ adapter } as any);
     }
 
     // Local development fallback

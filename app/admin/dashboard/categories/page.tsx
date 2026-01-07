@@ -7,6 +7,7 @@ import {
     closestCenter,
     KeyboardSensor,
     PointerSensor,
+    TouchSensor,
     useSensor,
     useSensors,
     DragEndEvent
@@ -51,7 +52,6 @@ function SortableCategoryRow({
         transform: CSS.Transform.toString(transform),
         transition,
         zIndex: isDragging ? 10 : 1,
-        touchAction: 'none'
     };
 
     return (
@@ -64,6 +64,7 @@ function SortableCategoryRow({
                 <button
                     {...attributes}
                     {...listeners}
+                    style={{ touchAction: 'none' }}
                     className="text-zinc-400 hover:text-primary cursor-grab active:cursor-grabbing p-1"
                 >
                     <GripVertical className="h-4 w-4" />
@@ -95,9 +96,11 @@ export default function CategoriesPage() {
     const [savingOrder, setSavingOrder] = useState(false);
 
     const sensors = useSensors(
-        useSensor(PointerSensor, {
+        useSensor(PointerSensor),
+        useSensor(TouchSensor, {
             activationConstraint: {
-                distance: 8, // Require dragging a bit before activation to allow tap
+                delay: 250,
+                tolerance: 5,
             },
         }),
         useSensor(KeyboardSensor, {

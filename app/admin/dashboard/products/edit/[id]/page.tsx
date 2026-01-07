@@ -76,8 +76,8 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
 
         const file = e.target.files[0];
 
-        if (file.size > 10 * 1024 * 1024) {
-            alert("File is too large! Please upload as image smaller than 10MB.");
+        if (file.size > 4 * 1024 * 1024) {
+            alert("File is too large! Vercel Hobby plan limit is ~4.5MB. Please upload an image smaller than 4MB.");
             return;
         }
 
@@ -92,8 +92,14 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
             });
 
             if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.details || errorData.error || "Upload failed");
+                let errorMessage = "Upload failed";
+                try {
+                    const errorData = await res.json();
+                    errorMessage = errorData.details || errorData.error || errorMessage;
+                } catch (e) {
+                    errorMessage = `Server Error (${res.status}): ${res.statusText}`;
+                }
+                throw new Error(errorMessage);
             }
 
             const data = await res.json();

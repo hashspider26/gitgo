@@ -11,10 +11,12 @@ export async function POST(req: Request) {
         const apiKey = process.env.CLOUDINARY_API_KEY;
         const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
+        // Verify configuration inside the handler for maximum reliability
         if (!cloudName || !apiKey || !apiSecret) {
+            console.error("Missing Cloudinary Env Vars");
             return NextResponse.json({
-                error: "Cloudinary configuration missing.",
-                details: "Server-side environment variables are not set for Cloudinary."
+                error: "Cloudinary configuration missing on server.",
+                details: "Check Vercel Environment Variables."
             }, { status: 500 });
         }
 
@@ -23,6 +25,16 @@ export async function POST(req: Request) {
 
         if (!file) {
             return NextResponse.json({ error: "No file received." }, { status: 400 });
+        }
+
+        // Vercel Hobby plan has a 4.5MB limit for request body. 
+        // We check this here to give a clear error if possible, 
+        // though Vercel might kill the request before it reaches here.
+        if (file.size > 4.5 * 1024 * 1024) {
+            return NextResponse.json({
+                error: "File is too large for Vercel Hobby plan (Max 4.5MB).",
+                details: "Please resize your image or use a smaller file."
+            }, { status: 413 });
         }
 
         const buffer = Buffer.from(await file.arrayBuffer());
@@ -35,6 +47,7 @@ export async function POST(req: Request) {
                 },
                 (error, result) => {
                     if (error) {
+                        console.error("Cloudinary Upload Error:", error);
                         reject(error);
                     } else {
                         resolve(result);
@@ -54,11 +67,11 @@ export async function POST(req: Request) {
         }, { status: 201 });
 
     } catch (error: any) {
-        const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+        console.error("CRITICAL API ERROR:", error);
         return NextResponse.json({
-            error: "Upload failed",
-            details: errorMessage,
-            code: error?.http_status || 500
+            error: "Upload process failed",
+            details: error instanceof Error ? error.message : "Unknown error",
+            code: 500
         }, { status: 500 });
     }
 }
