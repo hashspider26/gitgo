@@ -47,7 +47,7 @@ export async function POST(req: Request) {
                 },
                 (error, result) => {
                     if (error) {
-                        console.error("Cloudinary Upload Error:", error);
+                        console.error("Cloudinary Upload Error Callback:", error);
                         reject(error);
                     } else {
                         resolve(result);
@@ -56,6 +56,16 @@ export async function POST(req: Request) {
             );
 
             const s = new Readable();
+            s.on('error', (err) => {
+                console.error("Readable Stream Error:", err);
+                reject(err);
+            });
+
+            uploadStream.on('error', (err) => {
+                console.error("Cloudinary Writable Stream Error:", err);
+                reject(err);
+            });
+
             s.push(buffer);
             s.push(null);
             s.pipe(uploadStream);
@@ -68,9 +78,24 @@ export async function POST(req: Request) {
 
     } catch (error: any) {
         console.error("CRITICAL API ERROR:", error);
+
+        // Ensure the error details are a string to prevent serializing [object Object]
+        let errorDetails = "Unknown error occurred";
+        if (error instanceof Error) {
+            errorDetails = error.message;
+        } else if (error && typeof error === 'object') {
+            try {
+                errorDetails = JSON.stringify(error);
+            } catch (e) {
+                errorDetails = "Non-serializable error object";
+            }
+        } else if (error) {
+            errorDetails = String(error);
+        }
+
         return NextResponse.json({
             error: "Upload process failed",
-            details: error instanceof Error ? error.message : "Unknown error",
+            details: errorDetails,
             code: 500
         }, { status: 500 });
     }

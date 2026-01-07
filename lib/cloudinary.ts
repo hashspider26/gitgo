@@ -3,16 +3,14 @@ import { v2 as cloudinary } from 'cloudinary';
 // Configure Cloudinary
 // Support both CLOUDINARY_URL format and individual env vars
 if (process.env.CLOUDINARY_URL) {
-  const url = process.env.CLOUDINARY_URL;
-  const match = url.match(/cloudinary:\/\/([^:]+):([^@]+)@(.+)/);
-  if (match) {
-    const [, api_key, api_secret, cloud_name] = match;
+  try {
+    const parsedUrl = new URL(process.env.CLOUDINARY_URL);
     cloudinary.config({
-      cloud_name,
-      api_key,
-      api_secret,
+      cloud_name: parsedUrl.hostname,
+      api_key: parsedUrl.username,
+      api_secret: parsedUrl.password,
     });
-  } else {
+  } catch (e) {
     console.error('Invalid CLOUDINARY_URL format. Expected: cloudinary://api_key:api_secret@cloud_name');
   }
 } else if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
@@ -22,7 +20,7 @@ if (process.env.CLOUDINARY_URL) {
     api_secret: process.env.CLOUDINARY_API_SECRET,
   });
 } else {
-  console.log('Cloudinary credentials will be loaded from env during request if needed.');
+  console.log('Cloudinary configuration wait: missing env vars (CLOUDINARY_URL or keys)');
 }
 
 export { cloudinary };
