@@ -1,12 +1,3 @@
 {
-  "buildCommand": "prisma generate && next build",
-  "framework": "nextjs",
-  "installCommand": "npm install",
-  "regions": [
-    "iad1"
-  ]
-<<<<<<< HEAD
+  "buildCommand": "prisma generate && next build"
 }
-=======
-}
->>>>>>> dfd199b87ce164bd07927d4c5bd56dc6e780ae11
