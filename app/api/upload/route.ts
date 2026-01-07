@@ -1,102 +1,84 @@
 import { NextResponse } from "next/server";
-import { cloudinary } from "@/lib/cloudinary";
-import { Readable } from "stream";
+import { v2 as cloudinary } from 'cloudinary';
 
-// Set to 10 for Vercel Hobby plan compatibility
 export const maxDuration = 10;
 
 export async function POST(req: Request) {
+    console.log("[UPLOAD] Starting request handler...");
+
     try {
         const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
         const apiKey = process.env.CLOUDINARY_API_KEY;
         const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
-        // Verify configuration inside the handler for maximum reliability
+        // 1. Initial Config Check
         if (!cloudName || !apiKey || !apiSecret) {
-            console.error("Missing Cloudinary Env Vars");
+            console.error("[UPLOAD] CRITICAL: Missing Cloudinary environment variables!");
             return NextResponse.json({
-                error: "Cloudinary configuration missing on server.",
-                details: "Check Vercel Environment Variables."
+                error: "Cloudinary configuration missing on Vercel.",
+                details: "Please go to Vercel Dashboard > Settings > Environment Variables and add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET."
             }, { status: 500 });
         }
 
-        const formData = await req.formData();
+        // 2. Configure Local Instance
+        cloudinary.config({
+            cloud_name: cloudName,
+            api_key: apiKey,
+            api_secret: apiSecret,
+            secure: true
+        });
+
+        // 3. Parse Form Data
+        console.log("[UPLOAD] Parsing form data...");
+        let formData;
+        try {
+            formData = await req.formData();
+        } catch (err: any) {
+            console.error("[UPLOAD] Failed to parse form data:", err.message);
+            return NextResponse.json({ error: "Invalid form data.", details: err.message }, { status: 400 });
+        }
+
         const file = formData.get("file") as File;
-
         if (!file) {
-            return NextResponse.json({ error: "No file received." }, { status: 400 });
+            console.error("[UPLOAD] No file found in form data.");
+            return NextResponse.json({ error: "No image file provided." }, { status: 400 });
         }
 
-        // Vercel Hobby plan has a 4.5MB limit for request body. 
-        // We check this here to give a clear error if possible, 
-        // though Vercel might kill the request before it reaches here.
-        if (file.size > 4.5 * 1024 * 1024) {
-            return NextResponse.json({
-                error: "File is too large for Vercel Hobby plan (Max 4.5MB).",
-                details: "Please resize your image or use a smaller file."
-            }, { status: 413 });
-        }
+        console.log(`[UPLOAD] Processing file: ${file.name}, Size: ${file.size}, Type: ${file.type}`);
 
-        const buffer = Buffer.from(await file.arrayBuffer());
+        // 4. Convert to Buffer & Base64
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const base64Data = buffer.toString('base64');
+        const fileContent = `data:${file.type};base64,${base64Data}`;
 
-        const uploadResult = await new Promise((resolve, reject) => {
-            const uploadStream = cloudinary.uploader.upload_stream(
-                {
-                    folder: "greenvalleyseeds",
-                    resource_type: "auto",
-                },
+        // 5. Cloudinary Upload
+        console.log("[UPLOAD] Sending to Cloudinary...");
+        const result = await new Promise((resolve, reject) => {
+            cloudinary.uploader.upload(
+                fileContent,
+                { folder: "greenvalleyseeds" },
                 (error, result) => {
-                    if (error) {
-                        console.error("Cloudinary Upload Error Callback:", error);
-                        reject(error);
-                    } else {
-                        resolve(result);
-                    }
+                    if (error) reject(error);
+                    else resolve(result);
                 }
             );
-
-            const s = new Readable();
-            s.on('error', (err) => {
-                console.error("Readable Stream Error:", err);
-                reject(err);
-            });
-
-            uploadStream.on('error', (err) => {
-                console.error("Cloudinary Writable Stream Error:", err);
-                reject(err);
-            });
-
-            s.push(buffer);
-            s.push(null);
-            s.pipe(uploadStream);
         }) as any;
 
+        console.log("[UPLOAD] Success! URL:", result.secure_url);
+
         return NextResponse.json({
-            url: uploadResult.secure_url,
-            public_id: uploadResult.public_id
+            url: result.secure_url,
+            public_id: result.public_id
         }, { status: 201 });
 
     } catch (error: any) {
-        console.error("CRITICAL API ERROR:", error);
-
-        // Ensure the error details are a string to prevent serializing [object Object]
-        let errorDetails = "Unknown error occurred";
-        if (error instanceof Error) {
-            errorDetails = error.message;
-        } else if (error && typeof error === 'object') {
-            try {
-                errorDetails = JSON.stringify(error);
-            } catch (e) {
-                errorDetails = "Non-serializable error object";
-            }
-        } else if (error) {
-            errorDetails = String(error);
-        }
+        console.error("[UPLOAD] UNEXPECTED FATAL ERROR:", error);
 
         return NextResponse.json({
-            error: "Upload process failed",
-            details: errorDetails,
-            code: 500
+            error: "Internal Upload Error",
+            details: error instanceof Error ? error.message : "The server encountered a problem processing your request.",
+            code: error?.http_status || 500
         }, { status: 500 });
     }
 }
