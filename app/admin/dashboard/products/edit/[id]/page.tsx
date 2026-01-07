@@ -71,19 +71,58 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         fetchProduct();
     }, [params.id, router]);
 
+    // Helper to resize image before upload
+    async function resizeImage(file: File): Promise<Blob> {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target?.result as string;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    const MAX_SIZE = 1200;
+                    if (width > height) {
+                        if (width > MAX_SIZE) {
+                            height *= MAX_SIZE / width;
+                            width = MAX_SIZE;
+                        }
+                    } else {
+                        if (height > MAX_SIZE) {
+                            width *= MAX_SIZE / height;
+                            height = MAX_SIZE;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx?.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob((blob) => {
+                        resolve(blob || file);
+                    }, 'image/jpeg', 0.8);
+                };
+            };
+        });
+    }
+
     async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
         if (!e.target.files || e.target.files.length === 0) return;
 
-        const file = e.target.files[0];
+        let file: File | Blob = e.target.files[0];
 
-        if (file.size > 4 * 1024 * 1024) {
-            alert("File is too large! Vercel Hobby plan limit is ~4.5MB. Please upload an image smaller than 4MB.");
-            return;
+        if (file.size > 1 * 1024 * 1024) {
+            setUploading(true);
+            file = await resizeImage(e.target.files[0]);
         }
 
         setUploading(true);
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("file", file, "upload.jpg");
 
         try {
             const res = await fetch("/api/upload", {
@@ -93,13 +132,16 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
 
             if (!res.ok) {
                 let errorMessage = "Upload failed";
+                let details = "";
                 try {
                     const errorData = await res.json();
-                    errorMessage = errorData.details || errorData.error || errorMessage;
+                    errorMessage = errorData.error || errorMessage;
+                    details = errorData.details ? `\n\nDetails: ${errorData.details}` : "";
                 } catch (e) {
                     errorMessage = `Server Error (${res.status}): ${res.statusText}`;
+                    details = "\n\nThis usually means the server crashed before sending JSON. Check Vercel logs.";
                 }
-                throw new Error(errorMessage);
+                throw new Error(`${errorMessage}${details}`);
             }
 
             const data = await res.json();
