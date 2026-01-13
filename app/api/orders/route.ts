@@ -19,10 +19,17 @@ export async function POST(request: Request) {
         const nextIdNumber = orderCount + 1;
         const readableId = `GVS-${nextIdNumber.toString().padStart(5, '0')}`;
 
+
+
+        // Variables for calculation
         let subtotal = 0;
         let totalDeliveryFee = 0;
-        const validItems: any[] = [];
         let totalDiscount = 0;
+        const validItems: any[] = [];
+
+        let orderTotalWeight = 0;
+        let orderMaxBaseFee = 0;
+
         for (const item of items) {
             const products = await prisma.$queryRaw`SELECT * FROM "Product" WHERE id = ${item.productId} LIMIT 1` as any[];
             if (!products || products.length === 0) continue;
@@ -45,13 +52,9 @@ export async function POST(request: Request) {
             const productTotal = product.price * item.quantity;
             subtotal += productTotal;
 
-            // Delivery calculation
-            const baseFee = product.deliveryFee || 0;
-            if (baseFee > 0) {
-                const totalWeight = (product.weight || 0) * item.quantity;
-                const extraWeightKg = Math.max(0, Math.ceil(totalWeight / 1000) - 1);
-                totalDeliveryFee += baseFee + (extraWeightKg * 100);
-            }
+            // Accumulate weight and find max base fee
+            orderTotalWeight += (product.weight || 0) * item.quantity;
+            orderMaxBaseFee = Math.max(orderMaxBaseFee, product.deliveryFee || 0);
 
             // Discount calculation for advance payment
             if (product.advanceDiscount && product.advanceDiscount > 0) {
@@ -69,6 +72,17 @@ export async function POST(request: Request) {
                 quantity: item.quantity,
                 price: product.price
             });
+        }
+
+        // Calculate final delivery fee
+        if (validItems.length > 0) {
+            let surcharge = 0;
+            if (orderTotalWeight > 1000) {
+                const extraWeight = orderTotalWeight - 1000;
+                const extraChunks = Math.ceil(extraWeight / 1000);
+                surcharge = extraChunks * 100;
+            }
+            totalDeliveryFee = orderMaxBaseFee + surcharge;
         }
 
         const discountToApply = paymentMethod === "ADVANCE" ? totalDiscount : 0;

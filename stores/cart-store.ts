@@ -85,31 +85,30 @@ export const useCartStore = create<CartState>()(
             },
 
             getTotalDeliveryFee: () => {
-                // Calculate delivery fee for each item individually based on its weight and quantity
                 const items = get().items;
-                let totalFee = 0;
+                if (items.length === 0) return 0;
 
-                for (const item of items) {
-                    const baseDeliveryFee = item.deliveryFee || 0;
-                    if (baseDeliveryFee === 0) continue; // Free delivery items don't contribute
+                // 1. Calculate total weight of all items
+                const totalWeight = items.reduce((sum, item) => {
+                    return sum + (item.weight || 0) * item.quantity;
+                }, 0);
 
-                    const itemWeight = item.weight || 0;
-                    const totalItemWeight = itemWeight * item.quantity;
+                // 2. Find the highest base delivery fee among items
+                // This acts as the starting fee for the first 1000g
+                const maxBaseFee = items.reduce((max, item) => {
+                    return Math.max(max, item.deliveryFee || 0);
+                }, 0);
 
-                    // Logic: Double the delivery fee for every 1000g exceeded
-                    // 0-1000g: 1x
-                    // 1001-2000g: 2x
-                    // 2001-3000g: 3x
-                    // etc.
-                    let multiplier = 1;
-                    if (totalItemWeight > 1000) {
-                        multiplier = Math.ceil(totalItemWeight / 1000);
-                    }
-
-                    totalFee += (baseDeliveryFee * multiplier);
+                // 3. Calculate surcharge for weight above 1000g
+                // "100rs total increase per 1000g"
+                let surcharge = 0;
+                if (totalWeight > 1000) {
+                    const extraWeight = totalWeight - 1000;
+                    const extraChunks = Math.ceil(extraWeight / 1000);
+                    surcharge = extraChunks * 100;
                 }
 
-                return totalFee;
+                return maxBaseFee + surcharge;
             }
         }),
         {

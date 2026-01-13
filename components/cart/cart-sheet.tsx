@@ -18,7 +18,7 @@ import { formatCurrency } from "@/lib/utils";
 import { CartItem } from "./cart-item";
 
 export function CartSheet() {
-    const { items, getTotalPrice, isOpen, setIsOpen } = useCartStore();
+    const { items, getTotalPrice, getTotalDeliveryFee, isOpen, setIsOpen } = useCartStore();
     const [isClient, setIsClient] = useState(false);
 
     useEffect(() => {
@@ -91,14 +91,14 @@ export function CartSheet() {
                             </div>
                             <div className="flex justify-between text-muted-foreground">
                                 <span>Shipping</span>
-                                <span>Calculated at checkout</span>
+                                <span>{formatCurrency(getTotalDeliveryFee())}</span>
                             </div>
                             <div className="flex justify-between border-t border-zinc-100 pt-3 dark:border-zinc-800">
                                 <span className="font-semibold">Total</span>
-                                <span className="font-semibold">{formatCurrency(getTotalPrice())}</span>
+                                <span className="font-semibold">{formatCurrency(getTotalPrice() + getTotalDeliveryFee())}</span>
                             </div>
                             <div className="text-xs text-muted-foreground mt-2">
-                                Shipping, taxes, and discounts calculated at checkout.
+                                Shipping calculated based on total weight.
                             </div>
                         </div>
 

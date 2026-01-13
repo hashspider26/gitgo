@@ -135,17 +135,17 @@ function CheckoutContent() {
     const subtotal = checkoutItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
     // Calculate delivery fee based on weight
-    const totalDeliveryFee = checkoutItems.reduce((totalFee, item) => {
-        const baseDeliveryFee = item.deliveryFee || 0;
-        if (baseDeliveryFee === 0) return totalFee;
+    // Calculate delivery fee based on combined weight
+    const totalWeight = checkoutItems.reduce((sum, item) => sum + (item.weight || 0) * item.quantity, 0);
+    const maxBaseFee = checkoutItems.reduce((max, item) => Math.max(max, item.deliveryFee || 0), 0);
 
-        const itemWeight = item.weight || 0;
-        const totalItemWeight = itemWeight * item.quantity;
-        const extraWeightKg = Math.max(0, Math.ceil(totalItemWeight / 1000) - 1);
-        const itemDeliveryTotal = baseDeliveryFee + (extraWeightKg * 100);
-
-        return totalFee + itemDeliveryTotal;
-    }, 0);
+    let surcharge = 0;
+    if (totalWeight > 1000) {
+        const extraWeight = totalWeight - 1000;
+        const extraChunks = Math.ceil(extraWeight / 1000);
+        surcharge = extraChunks * 100;
+    }
+    const totalDeliveryFee = checkoutItems.length > 0 ? maxBaseFee + surcharge : 0;
 
     // Calculate Advance Payment Discount
     const totalDiscount = checkoutItems.reduce((acc, item) => {
