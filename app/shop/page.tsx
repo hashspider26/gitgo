@@ -36,9 +36,7 @@ export default async function ShopPage({
         prisma.product.count({
             where: category ? { category } : undefined,
         }),
-        prisma.category.findMany({
-            orderBy: { name: 'asc' }
-        })
+        prisma.$queryRaw`SELECT * FROM "Category" ORDER BY displayOrder ASC` as Promise<any[]>
     ]);
 
     const totalPages = Math.ceil(totalProducts / pageSize);
