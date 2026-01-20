@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
-import { Search, Sprout, ChevronLeft, ChevronRight } from "lucide-react";
+import { PrismaClient } from "@prisma/client";
+import { Search, Sprout } from "lucide-react";
 import { ProductCard } from "@/components/product/product-card";
 import { Suspense } from "react";
 import { ProductGridSkeleton } from "@/components/shared/loading-skeletons";
@@ -14,32 +14,25 @@ function formatPrice(amount: number) {
     }).format(amount);
 }
 
+const prisma = new PrismaClient() as any;
 export const revalidate = 0;
 
 export default async function ShopPage({
     searchParams,
 }: {
-    searchParams: { category?: string; sort?: string; page?: string };
+    searchParams: { category?: string; sort?: string };
 }) {
     const category = searchParams.category;
-    const page = Number(searchParams.page) || 1;
-    const pageSize = 12;
-    const skip = (page - 1) * pageSize;
 
-    const [products, totalProducts, categoryDocs] = await Promise.all([
+    const [products, categoryDocs] = await Promise.all([
         prisma.product.findMany({
             where: category ? { category } : undefined,
             orderBy: { createdAt: 'desc' },
-            skip,
-            take: pageSize,
         }),
-        prisma.product.count({
-            where: category ? { category } : undefined,
-        }),
-        prisma.$queryRaw`SELECT * FROM "Category" ORDER BY displayOrder ASC` as Promise<any[]>
+        prisma.category.findMany({
+            orderBy: { name: 'asc' }
+        })
     ]);
-
-    const totalPages = Math.ceil(totalProducts / pageSize);
 
     const categories = categoryDocs.map((c: any) => c.name);
 
@@ -74,7 +67,7 @@ export default async function ShopPage({
                                 {categories.map((c: string) => (
                                     <Link
                                         key={c}
-                                        href={`/shop?category=${encodeURIComponent(c)}`}
+                                        href={`/shop?category=${c}`}
                                         className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium border transition-colors ${category === c
                                             ? "bg-primary text-white border-primary"
                                             : "bg-white text-zinc-700 border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-300"}`}
@@ -93,7 +86,7 @@ export default async function ShopPage({
                             {categories.map((c: string) => (
                                 <Link
                                     key={c}
-                                    href={`/shop?category=${encodeURIComponent(c)}`}
+                                    href={`/shop?category=${c}`}
                                     className={`block text-sm ${category === c ? "text-primary font-medium" : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900"}`}
                                 >
                                     {c}
@@ -121,45 +114,6 @@ export default async function ShopPage({
                                 </p>
                                 <Link href="/shop" className="mt-6 inline-flex h-9 items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-50 shadow hover:bg-zinc-900/90 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-50/90">
                                     Clear Filters
-                                </Link>
-                            </div>
-                        )}
-
-                        {/* Pagination Controls */}
-                        {totalPages > 1 && (
-                            <div className="flex items-center justify-center mt-10 gap-2">
-                                <Link
-                                    href={{
-                                        pathname: '/shop',
-                                        query: { ...searchParams, page: page > 1 ? page - 1 : 1 }
-                                    }}
-                                    className={`flex items-center gap-1 px-4 py-2 rounded-md text-sm font-medium border transition-colors ${page <= 1
-                                        ? 'opacity-50 pointer-events-none border-zinc-200 text-zinc-400 dark:border-zinc-800 dark:text-zinc-600'
-                                        : 'border-zinc-200 hover:bg-zinc-50 text-zinc-700 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900'
-                                        }`}
-                                    aria-disabled={page <= 1}
-                                >
-                                    <ChevronLeft className="h-4 w-4" />
-                                    Previous
-                                </Link>
-
-                                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                                    Page {page} of {totalPages}
-                                </span>
-
-                                <Link
-                                    href={{
-                                        pathname: '/shop',
-                                        query: { ...searchParams, page: page < totalPages ? page + 1 : totalPages }
-                                    }}
-                                    className={`flex items-center gap-1 px-4 py-2 rounded-md text-sm font-medium border transition-colors ${page >= totalPages
-                                        ? 'opacity-50 pointer-events-none border-zinc-200 text-zinc-400 dark:border-zinc-800 dark:text-zinc-600'
-                                        : 'border-zinc-200 hover:bg-zinc-50 text-zinc-700 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900'
-                                        }`}
-                                    aria-disabled={page >= totalPages}
-                                >
-                                    Next
-                                    <ChevronRight className="h-4 w-4" />
                                 </Link>
                             </div>
                         )}

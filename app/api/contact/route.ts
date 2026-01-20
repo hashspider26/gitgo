@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
+const prisma = new PrismaClient();
 
 // POST - Submit contact form
 export async function POST(request: NextRequest) {

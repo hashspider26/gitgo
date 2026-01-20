@@ -35,7 +35,7 @@ export default function RootLayout({
         <AppProviders>
           <GlobalLinkHandler />
           <Suspense fallback={null}>
-            <TopLoadingBar />
+          <TopLoadingBar />
           </Suspense>
           <Navbar />
           <main className="min-h-[calc(100vh-7rem)]">{children}</main>

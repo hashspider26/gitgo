@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
+const prisma = new PrismaClient();
 
 // PATCH - Update message status (mark as read/replied)
 export async function PATCH(

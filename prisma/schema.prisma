@@ -1,12 +1,11 @@
 // This is your Prisma schema file
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "libsql"
   url      = env("DATABASE_URL")
 }
 
@@ -14,7 +13,7 @@ model User {
   id            String    @id @default(cuid())
   name          String?
   email         String?   @unique
-  password      String?
+  password      String?   // Add password back for NextAuth Credentials provider
   emailVerified DateTime?
   image         String?
   phone         String?
@@ -34,36 +33,29 @@ model Product {
   title       String
   slug        String   @unique
   description String
-  price       Int
-  salePrice   Int?
-  images      String
+  price       Int      // Price in PKR
+  salePrice   Int?     // Optional sale price
+  images      String   // JSON string of image URLs
   category    String
   stock       Int      @default(0)
   isFeatured  Boolean  @default(false)
-  deliveryFee Int      @default(0)
-  weight      Int      @default(0)
+  deliveryFee Int      @default(0) // Delivery fee in PKR
+  weight      Int      @default(0) // Weight in grams
   
   orderItems  OrderItem[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  advanceDiscount     Int    @default(0)
-  advanceDiscountType String @default("PKR") // "PKR" or "PERCENT"
 }
 
 model Order {
   id            String   @id @default(cuid())
-  readableId    String?  @unique
   customerName  String
   phone         String
   address       String
   city          String
   totalAmount   Int
-  paymentMethod String   @default("COD") // "COD" or "ADVANCE"
-  discountAmount Int     @default(0)
-  status        String   @default("PENDING")
-  stockDeducted Boolean  @default(false)
+  status        String   @default("PENDING") // PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED
   userId        String?
   
   items         OrderItem[]
@@ -78,7 +70,7 @@ model OrderItem {
   orderId   String
   productId String
   quantity  Int
-  price     Int
+  price     Int     // Price at time of order
 
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
@@ -87,6 +79,7 @@ model OrderItem {
   @@index([productId])
 }
 
+// NextAuth Models
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -123,11 +116,10 @@ model VerificationToken {
 }
 
 model Category {
-  id           String   @id @default(cuid())
-  name         String   @unique
-  displayOrder Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ContactMessage {
@@ -137,7 +129,8 @@ model ContactMessage {
   phone     String?
   subject   String
   message   String
-  status    String   @default("UNREAD")
+  status    String   @default("UNREAD") // UNREAD, READ, REPLIED
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
