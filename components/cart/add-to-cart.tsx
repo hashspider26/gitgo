@@ -6,6 +6,7 @@ import { Minus, Plus, ShoppingCart, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/stores/cart-store";
 import { cn } from "@/lib/utils";
+import { trackAddToCart } from "@/lib/analytics";
 
 interface AddToCartProps {
     product: {
@@ -53,6 +54,10 @@ export function AddToCart({
             deliveryFee: product.deliveryFee,
             weight: product.weight
         });
+
+        // Tracking
+        trackAddToCart(product, activeQuantity);
+
         setIsAdding(false);
         if (externalQuantity === undefined) {
             setInternalQuantity(1); // reset internal quantity only

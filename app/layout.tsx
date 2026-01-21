@@ -7,6 +7,7 @@ import { Navbar } from "@/components/shared/navbar";
 import { Footer } from "@/components/shared/footer";
 import { TopLoadingBar } from "@/components/shared/loading";
 import { GlobalLinkHandler } from "@/components/shared/global-link-handler";
+import { MetaPixel } from "@/components/analytics/meta-pixel";
 
 const geistSans = Roboto({
   variable: "--font-geist-sans",
@@ -24,18 +25,24 @@ export const metadata: Metadata = {
   description: "Your trusted online shop for high-quality seeds, gardening tools, and more in Pakistan. Cash on delivery available.",
 };
 
+import { GoogleAnalytics } from "@next/third-parties/google";
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const gaId = process.env.NEXT_PUBLIC_GA_ID;
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen`}>
+        {gaId && <GoogleAnalytics gaId={gaId} />}
+        <MetaPixel />
         <AppProviders>
           <GlobalLinkHandler />
           <Suspense fallback={null}>
-          <TopLoadingBar />
+            <TopLoadingBar />
           </Suspense>
           <Navbar />
           <main className="min-h-[calc(100vh-7rem)]">{children}</main>

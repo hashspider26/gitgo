@@ -16,6 +16,7 @@ import {
 import { useCartStore } from "@/stores/cart-store";
 import { formatCurrency } from "@/lib/utils";
 import { CartItem } from "./cart-item";
+import { trackBeginCheckout } from "@/lib/analytics";
 
 export function CartSheet() {
     const { items, getTotalPrice, getTotalDeliveryFee, isOpen, setIsOpen } = useCartStore();
@@ -26,6 +27,11 @@ export function CartSheet() {
     }, []);
 
     const itemCount = items.reduce((acc, item) => acc + item.quantity, 0);
+
+    const handleCheckoutClick = () => {
+        trackBeginCheckout(items, getTotalPrice() + getTotalDeliveryFee());
+        setIsOpen(false);
+    };
 
     if (!isClient) {
         return (
@@ -103,7 +109,7 @@ export function CartSheet() {
                         </div>
 
                         <SheetFooter>
-                            <Link href="/checkout" className="w-full" onClick={() => setIsOpen(false)}>
+                            <Link href="/checkout" className="w-full" onClick={handleCheckoutClick}>
                                 <Button className="w-full text-base font-semibold py-6 shadow-lg shadow-primary/20" size="lg">
                                     Checkout
                                 </Button>

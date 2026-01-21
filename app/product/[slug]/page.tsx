@@ -1,13 +1,13 @@
 import Link from "next/link";
-import { PrismaClient } from "@prisma/client";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Truck, Sprout, Share2, Shield } from "lucide-react";
 import { Metadata } from "next";
 import { ImageGallery } from "@/components/shared/image-gallery";
 import { ProductActions } from "@/components/product/product-actions";
 import { ProductCard } from "@/components/product/product-card";
+import { TrackViewItem } from "@/components/analytics/track-view-item";
 
-const prisma = new PrismaClient() as any;
+import { prisma } from "@/lib/prisma";
 
 // Force dynamic rendering to ensure fresh data and valid metadata generation on request
 export const dynamic = 'force-dynamic';
@@ -93,6 +93,7 @@ export default async function ProductPage({ params }: Props) {
 
     return (
         <div className="min-h-screen bg-white dark:bg-black pb-20">
+            <TrackViewItem product={{ id: p.id, title: p.title, price: p.price }} />
             <div className="border-b border-zinc-200 dark:border-zinc-800">
                 <div className="mx-auto max-w-6xl px-4 py-4">
                     <Link href="/shop" className="inline-flex items-center text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors">

@@ -1,13 +1,14 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { ArrowLeft, CheckCircle2, Loader2, ShoppingCart, User as UserIcon, CreditCard, Banknote, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import { useCartStore } from "@/stores/cart-store";
 import { formatCurrency } from "@/lib/utils";
+import { trackPurchase, trackBeginCheckout } from "@/lib/analytics";
 
 interface CheckoutItem {
     id: string; // Product ID
@@ -131,6 +132,7 @@ function CheckoutContent() {
         fetchDetails();
     }, [productIdParam, quantityParam, cartItems]);
 
+
     // Calculations
     const subtotal = checkoutItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
@@ -163,6 +165,14 @@ function CheckoutContent() {
     const discountToApply = paymentMethod === "ADVANCE" ? totalDiscount : 0;
     const total = subtotal + totalDeliveryFee - discountToApply;
 
+    const hasTrackedCheckout = useRef(false);
+    useEffect(() => {
+        if (!loading && checkoutItems.length > 0 && !hasTrackedCheckout.current) {
+            trackBeginCheckout(checkoutItems, total);
+            hasTrackedCheckout.current = true;
+        }
+    }, [loading, checkoutItems.length]);
+
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         setSubmitting(true);
@@ -180,6 +190,8 @@ function CheckoutContent() {
             }))
         };
 
+
+
         try {
             const res = await fetch("/api/orders", {
                 method: "POST",
@@ -191,6 +203,14 @@ function CheckoutContent() {
                 const data = await res.json();
                 setOrderId(data.readableId || data.id);
                 setSuccess(true);
+
+                // Tracking
+                trackPurchase(
+                    data.readableId || data.id,
+                    checkoutItems,
+                    total
+                );
+
                 if (!productIdParam) clearCart();
             } else {
                 alert("Failed to place order. Please try again.");

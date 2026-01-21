@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { PrismaClient } from "@prisma/client";
 import { Search, Sprout } from "lucide-react";
 import { ProductCard } from "@/components/product/product-card";
 import { Suspense } from "react";
@@ -14,7 +13,7 @@ function formatPrice(amount: number) {
     }).format(amount);
 }
 
-const prisma = new PrismaClient() as any;
+import { prisma } from "@/lib/prisma";
 export const revalidate = 0;
 
 export default async function ShopPage({

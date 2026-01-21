@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Package, ShoppingBag, Plus, DollarSign, Clock, AlertCircle, Tags, Mail } from "lucide-react";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
-const prisma = new PrismaClient();
+
 export const revalidate = 0;
 
 function formatPrice(amount: number) {
