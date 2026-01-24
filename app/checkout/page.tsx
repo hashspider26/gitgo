@@ -151,13 +151,15 @@ function CheckoutContent() {
 
     // Calculate Advance Payment Discount
     const totalDiscount = checkoutItems.reduce((acc, item) => {
-        if (!item.advanceDiscount || item.advanceDiscount <= 0) return acc;
+        const discount = item.advanceDiscount ?? 0;
+        if (!discount || discount <= 0) return acc;
 
+        const discountType = item.advanceDiscountType || "PKR";
         let itemDiscount = 0;
-        if (item.advanceDiscountType === "PERCENT") {
-            itemDiscount = (item.price * item.advanceDiscount / 100) * item.quantity;
+        if (discountType === "PERCENT") {
+            itemDiscount = (item.price * discount / 100) * item.quantity;
         } else {
-            itemDiscount = item.advanceDiscount * item.quantity;
+            itemDiscount = discount * item.quantity;
         }
         return acc + itemDiscount;
     }, 0);
@@ -166,14 +168,17 @@ function CheckoutContent() {
     const discountDetails = checkoutItems
         .filter(item => item.advanceDiscount && item.advanceDiscount > 0)
         .map(item => {
-            const itemDiscount = item.advanceDiscountType === "PERCENT"
-                ? (item.price * item.advanceDiscount / 100) * item.quantity
-                : item.advanceDiscount * item.quantity;
+            // TypeScript guard: we know advanceDiscount exists due to filter above
+            const discount = item.advanceDiscount ?? 0;
+            const discountType = item.advanceDiscountType || "PKR";
+            const itemDiscount = discountType === "PERCENT"
+                ? (item.price * discount / 100) * item.quantity
+                : discount * item.quantity;
             return {
                 title: item.title,
                 discount: itemDiscount,
-                discountAmount: item.advanceDiscount,
-                discountType: item.advanceDiscountType
+                discountAmount: discount,
+                discountType: discountType
             };
         });
 
