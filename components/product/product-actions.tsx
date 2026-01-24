@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Share2, Check } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Share2, Check, ShoppingCart, Zap } from "lucide-react";
 import { AddToCart } from "@/components/cart/add-to-cart";
 import { Button } from "@/components/ui/button";
+import { trackBeginCheckout } from "@/lib/analytics";
 
 interface ProductActionsProps {
     product: {
@@ -20,7 +22,22 @@ interface ProductActionsProps {
 
 export function ProductActions({ product }: ProductActionsProps) {
     const stock = product.stock;
+    const router = useRouter();
     const [shared, setShared] = useState(false);
+
+    const handleBuyNow = () => {
+        // Track begin checkout event
+        trackBeginCheckout([{
+            id: product.id,
+            title: product.title,
+            price: product.price,
+            quantity: 1,
+            image: product.image
+        }], product.price + (product.deliveryFee || 0));
+
+        // Redirect to checkout with product
+        router.push(`/checkout?product=${product.id}&quantity=1`);
+    };
 
     const handleShare = async () => {
         const url = window.location.href;
@@ -95,20 +112,28 @@ export function ProductActions({ product }: ProductActionsProps) {
                 )}
 
                 {stock > 0 && (
-                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                        <div className="flex-1 w-full sm:w-auto">
-                            <AddToCart
-                                product={product}
-                                showQuantitySelector
-                                size="lg"
-                                className="w-full"
-                            />
-                        </div>
+                    <div className="flex gap-3 items-center">
+                        {/* Buy Now Button - Primary Action */}
+                        <Button
+                            onClick={handleBuyNow}
+                            className="flex-1 h-10 text-sm font-semibold shadow-lg shadow-primary/20"
+                        >
+                            <Zap className="mr-2 h-4 w-4" />
+                            Buy Now
+                        </Button>
 
+                        {/* Add to Cart - Icon Only */}
+                        <AddToCart
+                            product={product}
+                            size="icon"
+                            className="h-10 w-10 rounded-lg shrink-0"
+                        />
+
+                        {/* Share - Icon Only */}
                         <Button
                             variant="outline"
                             size="icon"
-                            className={`h-10 w-10 sm:h-12 sm:w-12 shrink-0 rounded-lg transition-colors ${
+                            className={`h-10 w-10 rounded-lg transition-colors shrink-0 ${
                                 shared ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800" : ""
                             }`}
                             aria-label={shared ? "Link copied!" : "Share product"}

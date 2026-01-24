@@ -30,18 +30,20 @@ model User {
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  title       String
-  slug        String   @unique
-  description String
-  price       Int      // Price in PKR
-  salePrice   Int?     // Optional sale price
-  images      String   // JSON string of image URLs
-  category    String
-  stock       Int      @default(0)
-  isFeatured  Boolean  @default(false)
-  deliveryFee Int      @default(0) // Delivery fee in PKR
-  weight      Int      @default(0) // Weight in grams
+  id                  String   @id @default(cuid())
+  title               String
+  slug                String   @unique
+  description         String
+  price               Int      // Price in PKR
+  salePrice           Int?     // Optional sale price
+  images              String   // JSON string of image URLs
+  category            String
+  stock               Int      @default(0)
+  isFeatured          Boolean  @default(false)
+  deliveryFee         Int      @default(0) // Delivery fee in PKR
+  weight              Int      @default(0) // Weight in grams
+  advanceDiscount     Int      @default(0) // Advance payment discount amount
+  advanceDiscountType String   @default("PKR") // "PKR" or "PERCENT"
   
   orderItems  OrderItem[]
   

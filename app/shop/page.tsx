@@ -21,13 +21,21 @@ export default async function ShopPage({
 }: {
     searchParams: { category?: string; sort?: string };
 }) {
-    const category = searchParams.category;
+    // Decode category from URL
+    const categoryParam = searchParams.category;
+    const category = categoryParam ? decodeURIComponent(categoryParam) : undefined;
 
     const [products, categoryDocs] = await Promise.all([
-        prisma.product.findMany({
-            where: category ? { category } : undefined,
-            orderBy: { createdAt: 'desc' },
-        }),
+        category 
+            ? prisma.product.findMany({
+                where: {
+                    category: category
+                },
+                orderBy: { createdAt: 'desc' },
+            })
+            : prisma.product.findMany({
+                orderBy: { createdAt: 'desc' },
+            }),
         prisma.category.findMany({
             orderBy: { name: 'asc' }
         })
@@ -42,6 +50,21 @@ export default async function ShopPage({
                 <div className="mx-auto max-w-6xl">
                     <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">Shop</h1>
                     <p className="text-zinc-500 mt-2">Browse our collection of seeds and tools.</p>
+                </div>
+            </div>
+
+            {/* Offer Banner */}
+            <div className="mx-auto max-w-6xl px-4 mt-6">
+                <div className="bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-4 border border-primary/20 shadow-lg">
+                    <div className="flex items-center gap-3 text-white">
+                        <div className="h-10 w-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-xl">🎁</span>
+                        </div>
+                        <div className="flex-1">
+                            <p className="font-bold text-sm sm:text-base">Special Offer: Receive a Surprise Gift on Orders Over 1,000 PKR!</p>
+                            <p className="text-xs sm:text-sm text-white/90 mt-0.5">Add items worth 1,000 PKR or more to your cart to qualify.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -66,7 +89,7 @@ export default async function ShopPage({
                                 {categories.map((c: string) => (
                                     <Link
                                         key={c}
-                                        href={`/shop?category=${c}`}
+                                        href={`/shop?category=${encodeURIComponent(c)}`}
                                         className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium border transition-colors ${category === c
                                             ? "bg-primary text-white border-primary"
                                             : "bg-white text-zinc-700 border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-300"}`}
@@ -85,7 +108,7 @@ export default async function ShopPage({
                             {categories.map((c: string) => (
                                 <Link
                                     key={c}
-                                    href={`/shop?category=${c}`}
+                                    href={`/shop?category=${encodeURIComponent(c)}`}
                                     className={`block text-sm ${category === c ? "text-primary font-medium" : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900"}`}
                                 >
                                     {c}

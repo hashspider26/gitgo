@@ -162,6 +162,21 @@ function CheckoutContent() {
         return acc + itemDiscount;
     }, 0);
 
+    // Calculate discount details for display
+    const discountDetails = checkoutItems
+        .filter(item => item.advanceDiscount && item.advanceDiscount > 0)
+        .map(item => {
+            const itemDiscount = item.advanceDiscountType === "PERCENT"
+                ? (item.price * item.advanceDiscount / 100) * item.quantity
+                : item.advanceDiscount * item.quantity;
+            return {
+                title: item.title,
+                discount: itemDiscount,
+                discountAmount: item.advanceDiscount,
+                discountType: item.advanceDiscountType
+            };
+        });
+
     const discountToApply = paymentMethod === "ADVANCE" ? totalDiscount : 0;
     const total = subtotal + totalDeliveryFee - discountToApply;
 
@@ -396,16 +411,33 @@ function CheckoutContent() {
                                                 : "bg-white dark:bg-zinc-900 border-zinc-100 dark:border-zinc-800 hover:border-zinc-200"}`}
                                         >
                                             {totalDiscount > 0 && (
-                                                <div className="absolute top-0 right-0 bg-blue-600 text-white text-[9px] font-black px-2.5 py-1 rounded-bl-xl uppercase tracking-tighter flex items-center gap-1 shadow-sm">
-                                                    <Sparkles className="h-2.5 w-2.5" /> -{formatCurrency(totalDiscount)} OFF
+                                                <div className="absolute top-0 right-0 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-[9px] font-black px-3 py-1.5 rounded-bl-xl uppercase tracking-tighter flex items-center gap-1 shadow-lg">
+                                                    <Sparkles className="h-2.5 w-2.5 fill-white" /> Save {formatCurrency(totalDiscount)}
                                                 </div>
                                             )}
                                             <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${paymentMethod === "ADVANCE" ? "bg-primary text-white" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"}`}>
                                                 <CreditCard className="h-5 w-5" />
                                             </div>
-                                            <div className="text-left">
-                                                <p className="text-sm font-bold dark:text-white">Advance Payment</p>
-                                                <p className="text-[10px] text-zinc-500 font-medium">{totalDiscount > 0 ? "Discount Included" : "Easypaisa / Bank Transfer"}</p>
+                                            <div className="text-left flex-1">
+                                                <p className="text-sm font-bold dark:text-white">
+                                                    Advance Payment
+                                                </p>
+                                                {totalDiscount > 0 ? (
+                                                    <div className="text-[10px] font-semibold text-primary dark:text-primary-400 mt-0.5">
+                                                        Save {formatCurrency(totalDiscount)} • {discountDetails.length > 0 && (
+                                                            discountDetails.map((detail, idx) => (
+                                                                <span key={idx}>
+                                                                    {detail.discountType === "PERCENT" 
+                                                                        ? `${detail.discountAmount}%`
+                                                                        : formatCurrency(detail.discountAmount)}
+                                                                    {idx < discountDetails.length - 1 && " + "}
+                                                                </span>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-[10px] text-zinc-500 font-medium">Easypaisa / Bank Transfer</p>
+                                                )}
                                             </div>
                                         </button>
                                     </div>
@@ -486,9 +518,12 @@ function CheckoutContent() {
                                             )}
                                         </div>
                                         {paymentMethod === "ADVANCE" && totalDiscount > 0 && (
-                                            <div className="flex justify-between text-sm text-blue-600 animate-in slide-in-from-top-1">
-                                                <span className="font-medium flex items-center gap-1 italic"><Sparkles className="h-3 w-3" /> Advance Payment Discount</span>
-                                                <span className="font-bold">-{formatCurrency(totalDiscount)}</span>
+                                            <div className="flex justify-between text-sm bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-blue-700 dark:text-blue-400 animate-in slide-in-from-top-1">
+                                                <span className="font-bold flex items-center gap-1.5">
+                                                    <Sparkles className="h-3.5 w-3.5 fill-blue-600 dark:fill-blue-400" />
+                                                    Advance Payment Discount
+                                                </span>
+                                                <span className="font-black text-base">-{formatCurrency(totalDiscount)}</span>
                                             </div>
                                         )}
                                     </div>

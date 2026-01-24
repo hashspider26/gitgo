@@ -31,6 +31,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
                 isFeatured: body.isFeatured,
                 weight: body.weight ? Number(body.weight) : undefined,
                 deliveryFee: body.deliveryFee ? Number(body.deliveryFee) : undefined,
+                advanceDiscount: body.advanceDiscount ? Number(body.advanceDiscount) : 0,
+                advanceDiscountType: body.advanceDiscountType || "PKR",
             }
         });
         return NextResponse.json(product);
