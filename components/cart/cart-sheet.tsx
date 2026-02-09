@@ -16,10 +16,9 @@ import {
 import { useCartStore } from "@/stores/cart-store";
 import { formatCurrency } from "@/lib/utils";
 import { CartItem } from "./cart-item";
-import { trackBeginCheckout } from "@/lib/analytics";
 
 export function CartSheet() {
-    const { items, getTotalPrice, getTotalDeliveryFee, isOpen, setIsOpen } = useCartStore();
+    const { items, getTotalPrice, isOpen, setIsOpen } = useCartStore();
     const [isClient, setIsClient] = useState(false);
 
     useEffect(() => {
@@ -27,11 +26,6 @@ export function CartSheet() {
     }, []);
 
     const itemCount = items.reduce((acc, item) => acc + item.quantity, 0);
-
-    const handleCheckoutClick = () => {
-        trackBeginCheckout(items, getTotalPrice() + getTotalDeliveryFee());
-        setIsOpen(false);
-    };
 
     if (!isClient) {
         return (
@@ -97,19 +91,19 @@ export function CartSheet() {
                             </div>
                             <div className="flex justify-between text-muted-foreground">
                                 <span>Shipping</span>
-                                <span>{formatCurrency(getTotalDeliveryFee())}</span>
+                                <span>Calculated at checkout</span>
                             </div>
                             <div className="flex justify-between border-t border-zinc-100 pt-3 dark:border-zinc-800">
                                 <span className="font-semibold">Total</span>
-                                <span className="font-semibold">{formatCurrency(getTotalPrice() + getTotalDeliveryFee())}</span>
+                                <span className="font-semibold">{formatCurrency(getTotalPrice())}</span>
                             </div>
                             <div className="text-xs text-muted-foreground mt-2">
-                                Shipping calculated based on total weight.
+                                Shipping, taxes, and discounts calculated at checkout.
                             </div>
                         </div>
 
                         <SheetFooter>
-                            <Link href="/checkout" className="w-full" onClick={handleCheckoutClick}>
+                            <Link href="/checkout" className="w-full" onClick={() => setIsOpen(false)}>
                                 <Button className="w-full text-base font-semibold py-6 shadow-lg shadow-primary/20" size="lg">
                                     Checkout
                                 </Button>

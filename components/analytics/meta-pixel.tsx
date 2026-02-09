@@ -13,10 +13,23 @@ export const MetaPixel = () => {
         if (!loaded || !pixelId) return;
 
         // Track pageview on route change
-        window.fbq("track", "PageView");
+        if (typeof window.fbq !== "undefined") {
+            window.fbq("track", "PageView");
+        }
     }, [pathname, loaded, pixelId]);
 
-    if (!pixelId) return null;
+    if (!pixelId) {
+        if (process.env.NODE_ENV === "development") {
+            console.warn("⚠️ Meta Pixel ID not configured. Set NEXT_PUBLIC_META_PIXEL_ID in your .env file");
+        }
+        return null;
+    }
+
+    // Validate pixel ID format (should be numeric)
+    if (!/^\d+$/.test(pixelId)) {
+        console.error("❌ Invalid Meta Pixel ID format. Pixel ID should be numeric.");
+        return null;
+    }
 
     return (
         <>
@@ -37,7 +50,16 @@ export const MetaPixel = () => {
             fbq('track', 'PageView');
           `,
                 }}
-                onLoad={() => setLoaded(true)}
+                onLoad={() => {
+                    setLoaded(true);
+                    // Ensure fbq is available globally
+                    if (typeof window !== "undefined" && typeof window.fbq !== "undefined") {
+                        console.log("✅ Meta Pixel initialized:", pixelId);
+                    }
+                }}
+                onError={() => {
+                    console.error("❌ Failed to load Meta Pixel script");
+                }}
             />
             <noscript>
                 <img
@@ -45,6 +67,7 @@ export const MetaPixel = () => {
                     width="1"
                     style={{ display: "none" }}
                     src={`https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`}
+                    alt=""
                 />
             </noscript>
         </>

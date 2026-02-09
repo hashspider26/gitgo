@@ -10,6 +10,8 @@ export interface CartItem {
     quantity: number;
     deliveryFee?: number;
     weight?: number; // Weight in grams
+    advanceDiscount?: number;
+    advanceDiscountType?: string;
 }
 
 interface CartState {

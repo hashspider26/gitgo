@@ -1,8 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
-
-import { NotificationManager } from "@/components/admin/notification-manager";
+import { AdminTabs } from "@/components/admin/admin-tabs";
 
 export default async function DashboardLayout({
     children,
@@ -16,9 +15,12 @@ export default async function DashboardLayout({
     }
 
     return (
-        <>
-            <NotificationManager />
-            {children}
-        </>
+        <div className="min-h-screen bg-stone-50 dark:bg-zinc-950">
+            <AdminTabs sessionName={session.user.name || "Admin"} />
+
+            <main className="py-8">
+                {children}
+            </main>
+        </div>
     );
 }

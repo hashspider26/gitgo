@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Share2, Check, ShoppingCart, Zap } from "lucide-react";
+import { Share2, Check, Shield, ShoppingCart } from "lucide-react";
 import { AddToCart } from "@/components/cart/add-to-cart";
 import { Button } from "@/components/ui/button";
 import { trackBeginCheckout } from "@/lib/analytics";
@@ -95,58 +95,107 @@ export function ProductActions({ product }: ProductActionsProps) {
         }
     };
 
+    const [displayStock, setDisplayStock] = useState(stock + 1);
+    const [isHovered, setIsHovered] = useState(false);
+    const [showBuyerText, setShowBuyerText] = useState(false);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting && !isHovered && displayStock > stock) {
+                    setIsHovered(true);
+                    setTimeout(() => {
+                        setDisplayStock(stock);
+                        setShowBuyerText(true);
+                        setTimeout(() => setShowBuyerText(false), 3000); // Hide text after 3s
+                    }, 1500); // Delay for realism
+                }
+            },
+            { threshold: 0.5 }
+        );
+
+        const element = document.getElementById("stock-display");
+        if (element) observer.observe(element);
+
+        return () => observer.disconnect();
+    }, [isHovered, displayStock, stock]);
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-6">
-                {/* Stock Status */}
+                {/* Stock Status - Shopify style with FOMO */}
                 {stock > 0 ? (
-                    <div className="flex items-center gap-2">
-                        <div className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
-                        <span className="text-sm font-medium text-green-600 dark:text-green-400">In Stock ({stock} available)</span>
+                    <div id="stock-display" className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 animate-in fade-in duration-700">
+                            <div className="relative">
+                                <div className="h-2.5 w-2.5 rounded-full bg-orange-500 animate-ping absolute opacity-75" />
+                                <div className="h-2.5 w-2.5 rounded-full bg-orange-500 relative" />
+                            </div>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-orange-600 transition-all duration-500">
+                                In Stock ({displayStock} units left)
+                            </span>
+                        </div>
+                        {showBuyerText && (
+                            <p className="text-[9px] text-zinc-400 italic animate-in fade-in slide-in-from-top-1 pl-5">
+                                Someone just bought this item
+                            </p>
+                        )}
                     </div>
                 ) : (
                     <div className="flex items-center gap-2">
-                        <div className="h-2.5 w-2.5 rounded-full bg-red-500" />
-                        <span className="text-sm font-medium text-red-600 dark:text-red-400">Out of Stock</span>
+                        <div className="h-2 w-2 rounded-full bg-red-500" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-red-600">Sold Out</span>
                     </div>
                 )}
 
                 {stock > 0 && (
-                    <div className="flex gap-3 items-center">
-                        {/* Buy Now Button - Primary Action */}
+                    <div className="flex flex-col gap-3">
                         <Button
                             onClick={handleBuyNow}
-                            className="flex-1 h-10 text-sm font-semibold shadow-lg shadow-primary/20"
+                            className="w-full h-12 rounded-none bg-black text-white font-bold shadow-lg hover:bg-zinc-900 transition-all active:scale-[0.98]"
                         >
-                            <Zap className="mr-2 h-4 w-4" />
+                            <ShoppingCart className="mr-2 h-5 w-5" />
                             Buy Now
                         </Button>
-
-                        {/* Add to Cart - Icon Only */}
+                        
                         <AddToCart
                             product={product}
-                            size="icon"
-                            className="h-10 w-10 rounded-lg shrink-0"
+                            showQuantitySelector={false}
+                            className="w-full h-12 rounded-none border border-black bg-white text-black hover:bg-zinc-50 transition-all font-bold"
+                            variant="outline"
+                            hideIcon={true}
                         />
 
-                        {/* Share - Icon Only */}
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className={`h-10 w-10 rounded-lg transition-colors shrink-0 ${
-                                shared ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800" : ""
-                            }`}
-                            aria-label={shared ? "Link copied!" : "Share product"}
-                            onClick={handleShare}
-                        >
-                            {shared ? (
-                                <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
-                            ) : (
-                                <Share2 className="h-5 w-5" />
-                            )}
-                        </Button>
+                        <div className="flex justify-center mt-2">
+                            <button
+                                className={`flex items-center gap-2 text-xs font-medium text-zinc-500 hover:text-zinc-900 transition-colors ${shared ? "text-green-600" : ""}`}
+                                onClick={handleShare}
+                            >
+                                {shared ? (
+                                    <>
+                                        <Check className="h-4 w-4" />
+                                        Link Copied
+                                    </>
+                                ) : (
+                                    <>
+                                        <Share2 className="h-4 w-4" />
+                                        Share this product
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 )}
+            </div>
+
+            {/* Psychological scarcity/trust near buttons */}
+            <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-tighter text-zinc-400">
+                    <Shield className="h-3 w-3" /> 100% Genuine Seeds
+                </div>
+                <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-tighter text-zinc-400">
+                    <Check className="h-3 w-3" /> Hand Picked Quality
+                </div>
             </div>
         </div>
     );

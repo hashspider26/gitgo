@@ -1,13 +1,13 @@
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Truck, Sprout, Share2, Shield } from "lucide-react";
 import { Metadata } from "next";
 import { ImageGallery } from "@/components/shared/image-gallery";
 import { ProductActions } from "@/components/product/product-actions";
 import { ProductCard } from "@/components/product/product-card";
+import { LiveViewerCount } from "@/components/product/live-viewer-count";
 import { TrackViewItem } from "@/components/analytics/track-view-item";
-
-import { prisma } from "@/lib/prisma";
 
 // Force dynamic rendering to ensure fresh data and valid metadata generation on request
 export const dynamic = 'force-dynamic';
@@ -92,82 +92,70 @@ export default async function ProductPage({ params }: Props) {
     }
 
     return (
-        <div className="min-h-screen bg-white dark:bg-black pb-20">
-            <TrackViewItem product={{ id: p.id, title: p.title, price: p.price }} />
-            <div className="border-b border-zinc-200 dark:border-zinc-800">
-                <div className="mx-auto max-w-6xl px-4 py-4">
-                    <Link href="/shop" className="inline-flex items-center text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors">
-                        <ArrowLeft className="h-4 w-4 mr-1" /> Back to Shop
-                    </Link>
-                </div>
+        <div className="min-h-screen bg-white pb-20">
+            {/* Minimal Header Breadcrumb */}
+            <div className="mx-auto max-w-6xl px-4 py-6">
+                <nav className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                    <Link href="/" className="hover:text-primary">Home</Link>
+                    <span>/</span>
+                    <Link href="/shop" className="hover:text-primary">Shop</Link>
+                    <span>/</span>
+                    <span className="text-zinc-900 truncate max-w-[150px]">{p.title}</span>
+                </nav>
             </div>
 
-            <div className="mx-auto max-w-6xl p-4 mt-8">
-                {/* Main Product Section: Image reduced to 40% width (2/5 cols) */}
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-10 lg:gap-16 mb-24">
-                    {/* Image Gallery */}
-                    <div className="md:col-span-2">
-                        <div className="max-w-md mx-auto w-full">
+            <div className="mx-auto max-w-6xl px-4">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+
+                    {/* Left: Image Gallery */}
+                    <div className="lg:col-span-7">
+                        <div className="rounded-3xl overflow-hidden bg-zinc-50 border border-zinc-100">
                             <ImageGallery images={images} title={p.title} />
                         </div>
                     </div>
 
-                    {/* Product Info */}
-                    <div className="md:col-span-3 flex flex-col">
-                        <div className="mb-6 border-b border-zinc-100 dark:border-zinc-800 pb-6">
-                            <span className="text-sm font-medium text-primary mb-2 block">{p.category}</span>
-                            <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white mb-4">{p.title}</h1>
-                            <div className="flex items-end gap-3">
-                                <span className="text-3xl font-bold text-zinc-900 dark:text-white">
+                    {/* Right: Product Details & Conversion Box */}
+                    <div className="lg:col-span-5 space-y-8">
+                        <TrackViewItem product={{ id: p.id, title: p.title, price: p.price }} />
+                        <div>
+                            <LiveViewerCount />
+
+                            <h1 className="text-3xl font-black text-zinc-900 leading-tight mb-2">{p.title}</h1>
+
+                            <div className="flex items-baseline gap-4 mb-6">
+                                <span className="text-4xl font-black text-primary">
                                     {formatPrice(p.price)}
                                 </span>
-                                {p.salePrice && (
-                                    <span className="text-lg text-zinc-500 line-through mb-1">
+                                {p.salePrice && p.salePrice > p.price && (
+                                    <span className="text-xl text-orange-600 line-through decoration-2 font-bold">
                                         {formatPrice(p.salePrice)}
                                     </span>
                                 )}
+                                {p.salePrice && p.salePrice > p.price && (
+                                    <span className="bg-red-600 text-white px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter">
+                                        Save {Math.round(((p.salePrice - p.price) / p.salePrice) * 100)}%
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100 space-y-3 mb-8">
+                                <div className="flex items-center gap-2 text-xs font-bold text-zinc-600">
+                                    <Truck className="h-4 w-4 text-primary" />
+                                    <span>
+                                        {(p.deliveryFee || 0) === 0 
+                                            ? "Free Delivery" 
+                                            : `Delivery Charges: ${formatPrice(p.deliveryFee)}`}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs font-bold text-zinc-600">
+                                    <Shield className="h-4 w-4 text-primary" />
+                                    <span>Safe & Secure Cash on Delivery</span>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="prose prose-zinc dark:prose-invert max-w-none text-zinc-600 dark:text-zinc-300 mb-8">
-                            <p>{p.description}</p>
-                        </div>
-
-                        <div className="space-y-6 mt-auto">
-                            <div className="flex items-center gap-4 p-4 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-100 dark:border-zinc-800">
-                                <div className="h-10 w-10 bg-white dark:bg-black rounded-full flex items-center justify-center border border-zinc-200 dark:border-zinc-800 text-green-600">
-                                    <Truck className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <p className="font-semibold text-sm">
-                                        {(p.deliveryFee || 0) === 0
-                                            ? "Free Delivery"
-                                            : `Delivery Fee: ${formatPrice(p.deliveryFee)}`
-                                        }
-                                    </p>
-                                    <p className="text-xs text-zinc-500">
-                                        {(p.deliveryFee || 0) === 0
-                                            ? "Free shipping on this item"
-                                            : "Standard delivery charges apply"
-                                        }
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-4 p-4 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-100 dark:border-zinc-800">
-                                <div className="h-10 w-10 bg-white dark:bg-black rounded-full flex items-center justify-center border border-zinc-200 dark:border-zinc-800 text-blue-600">
-                                    <Shield className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <p className="font-semibold text-sm">
-                                        14-Day Return Policy
-                                    </p>
-                                    <p className="text-xs text-zinc-500">
-                                        Return unopened products within 14 days for a full refund
-                                    </p>
-                                </div>
-                            </div>
-
+                        {/* Conversion Section */}
+                        <div className="space-y-6">
                             <ProductActions
                                 product={{
                                     id: p.id,
@@ -182,14 +170,41 @@ export default async function ProductPage({ params }: Props) {
                             />
                         </div>
 
+                        {/* Product Summary Tabs (Simplified) */}
+                        <div className="space-y-4 pt-4 border-t border-zinc-100">
+                            <details className="group" open>
+                                <summary className="flex items-center justify-between font-black text-[11px] uppercase tracking-widest text-zinc-900 cursor-pointer list-none py-2">
+                                    Product Description
+                                    <span className="transition-transform group-open:rotate-180">+</span>
+                                </summary>
+                                <div className="pt-4 text-sm text-zinc-600 leading-relaxed font-medium">
+                                    {p.description}
+                                </div>
+                            </details>
+
+                            <details className="group">
+                                <summary className="flex items-center justify-between font-black text-[11px] uppercase tracking-widest text-zinc-900 cursor-pointer list-none py-2">
+                                    Delivery Info
+                                    <span className="transition-transform group-open:rotate-180">+</span>
+                                </summary>
+                                <div className="pt-4 text-sm text-zinc-600 leading-relaxed font-medium">
+                                    We deliver across Pakistan using TCS and Leopards.
+                                    Average delivery time is 3-5 business days.
+                                    Cash on delivery is available for all cities.
+                                </div>
+                            </details>
+                        </div>
                     </div>
                 </div>
 
-                {/* Related Products Section */}
+                {/* Related Strategy: Social Proof Section */}
                 {relatedProducts.length > 0 && (
-                    <div className="border-t border-zinc-200 dark:border-zinc-800 pt-16">
-                        <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-8">You Might Also Like</h2>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+                    <div className="mt-32 pb-20 border-t border-zinc-100 pt-20">
+                        <div className="text-center mb-12">
+                            <h2 className="text-2xl font-black text-zinc-900 mb-2 uppercase tracking-tighter italic">Customers also loved these</h2>
+                            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Hand-picked selections based on your style</p>
+                        </div>
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                             {relatedProducts.map((relProduct: any) => (
                                 <ProductCard key={relProduct.id} product={relProduct} />
                             ))}

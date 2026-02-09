@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Leaf, Truck, ShieldCheck, Sprout } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { ProductCard } from "@/components/product/product-card";
 
 function formatPrice(amount: number) {
   return new Intl.NumberFormat('en-PK', {
@@ -14,14 +15,14 @@ export const revalidate = 0; // Ensure fresh data on every request
 
 export default async function Home() {
   const featuredProducts = await prisma.product.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 3,
+    where: { isFeatured: true },
+    take: 4,
   });
 
   return (
     <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
-      <section className="relative w-full bg-stone-100 px-4 dark:bg-zinc-900 overflow-hidden min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center">
+      <section className="relative w-full bg-stone-100 py-20 px-4 md:py-32 dark:bg-zinc-900 overflow-hidden">
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <svg className="h-full w-full text-primary" viewBox="0 0 100 100" preserveAspectRatio="none">
             <path d="M0 100 C 20 0 50 0 100 100 Z" fill="currentColor" />
@@ -93,50 +94,9 @@ export default async function Home() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
             {featuredProducts.length > 0 ? (
-              featuredProducts.map((p: any) => {
-                const product = p;
-                return (
-                  <Link key={product.id} href={`/product/${product.slug}`} className="group block h-full">
-                    <div className="rounded-xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md dark:border-zinc-800 dark:bg-black h-full overflow-hidden flex flex-col">
-                      <div className="aspect-square w-full bg-zinc-100 relative overflow-hidden">
-                        {(() => {
-                          let imageUrl = null;
-                          try {
-                            const images = product.images ? JSON.parse(product.images) : [];
-                            if (Array.isArray(images) && images.length > 0) imageUrl = images[0];
-                          } catch (e) { }
-
-                          if (imageUrl) {
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            return <img src={imageUrl} alt={product.title} className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300" />;
-                          }
-                          return (
-                            <div className="absolute inset-0 flex items-center justify-center text-zinc-300 bg-zinc-100">
-                              <Sprout className="h-12 w-12" />
-                            </div>
-                          );
-                        })()}
-                        {/* Add overlay */}
-                        <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/5" />
-                      </div>
-                      <div className="p-4 flex-1 flex flex-col">
-                        <h3 className="font-semibold text-zinc-900 dark:text-white group-hover:text-primary mb-1 line-clamp-1">
-                          {product.title}
-                        </h3>
-                        <p className="text-xs text-zinc-500 mb-3">{product.category}</p>
-                        <div className="mt-auto flex items-center justify-between">
-                          <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                            {formatPrice(product.price)}
-                          </span>
-                          <span className="text-xs text-primary font-bold bg-primary/10 px-2 py-1 rounded-full">
-                            In Stock
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })
+              featuredProducts.map((p: any) => (
+                <ProductCard key={p.id} product={p} />
+              ))
             ) : (
               <div className="col-span-4 text-center py-12 text-zinc-500">
                 No products found. Run seed script!

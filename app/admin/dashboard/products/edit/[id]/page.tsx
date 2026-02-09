@@ -1,9 +1,11 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Upload, X } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function EditProductPage({ params }: { params: { id: string } }) {
     const router = useRouter();
@@ -16,21 +18,17 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [price, setPrice] = useState("");
+    const [salePrice, setSalePrice] = useState("");
     const [stock, setStock] = useState("");
+    const [advanceDiscount, setAdvanceDiscount] = useState("0");
+    const [advanceDiscountType, setAdvanceDiscountType] = useState("PKR");
     const [weight, setWeight] = useState("");
     const [deliveryFee, setDeliveryFee] = useState("");
     const [category, setCategory] = useState("");
-    const [advanceDiscount, setAdvanceDiscount] = useState("0");
-    const [advanceDiscountType, setAdvanceDiscountType] = useState("PKR");
     const [categories, setCategories] = useState<{ id: string, name: string }[]>([]);
 
-    const isFormValid = title.trim() !== "" &&
-        description.trim() !== "" &&
-        price !== "" &&
-        category !== "" &&
-        images.length > 0;
-
     useEffect(() => {
+        // Fetch categories
         fetch("/api/categories")
             .then(res => res.json())
             .then(data => setCategories(data))
@@ -47,19 +45,23 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                 setTitle(product.title);
                 setDescription(product.description);
                 setPrice(product.price.toString());
+                setSalePrice(product.salePrice ? product.salePrice.toString() : "");
                 setStock(product.stock.toString());
+                setAdvanceDiscount((product.advanceDiscount || 0).toString());
+                setAdvanceDiscountType(product.advanceDiscountType || "PKR");
                 setWeight((product.weight || 0).toString());
                 setDeliveryFee((product.deliveryFee || 0).toString());
                 setCategory(product.category);
-                setAdvanceDiscount((product.advanceDiscount || 0).toString());
-                setAdvanceDiscountType(product.advanceDiscountType || "PKR");
 
+                // Parse images safely
                 try {
                     const parsedImages = product.images ? JSON.parse(product.images) : [];
                     if (Array.isArray(parsedImages)) setImages(parsedImages);
                 } catch (e) {
+                    // Fallback if images is not valid JSON
                     setImages([]);
                 }
+
             } catch (error) {
                 console.error(error);
                 alert("Error loading product");
@@ -71,58 +73,13 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         fetchProduct();
     }, [params.id, router]);
 
-    // Helper to resize image before upload
-    async function resizeImage(file: File): Promise<Blob> {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = (event) => {
-                const img = new Image();
-                img.src = event.target?.result as string;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    let width = img.width;
-                    let height = img.height;
-
-                    const MAX_SIZE = 1200;
-                    if (width > height) {
-                        if (width > MAX_SIZE) {
-                            height *= MAX_SIZE / width;
-                            width = MAX_SIZE;
-                        }
-                    } else {
-                        if (height > MAX_SIZE) {
-                            width *= MAX_SIZE / height;
-                            height = MAX_SIZE;
-                        }
-                    }
-
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx?.drawImage(img, 0, 0, width, height);
-
-                    canvas.toBlob((blob) => {
-                        resolve(blob || file);
-                    }, 'image/jpeg', 0.8);
-                };
-            };
-        });
-    }
-
     async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
         if (!e.target.files || e.target.files.length === 0) return;
 
-        let file: File | Blob = e.target.files[0];
-
-        if (file.size > 1 * 1024 * 1024) {
-            setUploading(true);
-            file = await resizeImage(e.target.files[0]);
-        }
-
         setUploading(true);
+        const file = e.target.files[0];
         const formData = new FormData();
-        formData.append("file", file, "upload.jpg");
+        formData.append("file", file);
 
         try {
             const res = await fetch("/api/upload", {
@@ -130,25 +87,13 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                 body: formData,
             });
 
-            if (!res.ok) {
-                let errorMessage = "Upload failed";
-                let details = "";
-                try {
-                    const errorData = await res.json();
-                    errorMessage = errorData.error || errorMessage;
-                    details = errorData.details ? `\n\nDetails: ${errorData.details}` : "";
-                } catch (e) {
-                    errorMessage = `Server Error (${res.status}): ${res.statusText}`;
-                    details = "\n\nThis usually means the server crashed before sending JSON. Check Vercel logs.";
-                }
-                throw new Error(`${errorMessage}${details}`);
-            }
+            if (!res.ok) throw new Error("Upload failed");
 
             const data = await res.json();
             setImages((prev) => [...prev, data.url]);
-        } catch (error: any) {
+        } catch (error) {
             console.error(error);
-            alert(`Upload Error: ${error.message}`);
+            alert("Failed to upload image");
         } finally {
             setUploading(false);
         }
@@ -160,7 +105,6 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (!isFormValid) return;
         setSubmitting(true);
 
         try {
@@ -171,13 +115,16 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                     title,
                     description,
                     price: Math.floor(Number(price || "0")),
+                    salePrice: salePrice ? Math.floor(Number(salePrice)) : null,
                     stock: Math.floor(Number(stock || "0")),
-                    weight: Math.floor(Number(weight || "0")),
-                    deliveryFee: Math.floor(Number(deliveryFee || "0")),
-                    category,
-                    images: images,
                     advanceDiscount: Math.floor(Number(advanceDiscount || "0")),
-                    advanceDiscountType
+                    advanceDiscountType,
+                    weight,
+                    deliveryFee,
+                    category,
+                    images: images // API expects array and stringifies it but let's check API.. 
+                    // Wait, APi route says: objects: JSON.stringify(body.images || [])
+                    // So we can send the array directly.
                 }),
             });
 
@@ -214,14 +161,14 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                     <h1 className="text-xl font-bold mb-6 text-zinc-900 dark:text-white">Edit Product</h1>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Title *</label>
+                            <label className="text-sm font-medium">Title</label>
                             <input
                                 value={title} onChange={e => setTitle(e.target.value)}
                                 required className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Description *</label>
+                            <label className="text-sm font-medium">Description</label>
                             <textarea
                                 value={description} onChange={e => setDescription(e.target.value)}
                                 required rows={3} className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
@@ -230,7 +177,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
 
                         {/* Image Upload Section */}
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Product Images * ({images.length} added)</label>
+                            <label className="text-sm font-medium">Product Images</label>
                             <div className="flex flex-wrap gap-4 mb-2">
                                 {images.map((url, idx) => (
                                     <div key={idx} className="relative w-24 h-24 border rounded-md overflow-hidden bg-zinc-100">
@@ -261,12 +208,25 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Price (PKR) *</label>
+                                <label className="text-sm font-medium">Sale Price (PKR)</label>
                                 <input
                                     type="number" value={price} onChange={e => setPrice(e.target.value)}
                                     required className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                                    placeholder="Discounted Price"
                                 />
                             </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Original Price (PKR)</label>
+                                <input
+                                    type="number" 
+                                    value={salePrice} 
+                                    onChange={e => setSalePrice(e.target.value)}
+                                    className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                                    placeholder="Old Price (Optional)"
+                                />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Stock</label>
                                 <input
@@ -274,43 +234,27 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                                     required className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
                                 />
                             </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-blue-600 dark:text-blue-400 font-bold">Advance Payment Discount</label>
+                                <label className="text-sm font-medium text-blue-600 font-bold">Advance Payment Discount</label>
                                 <div className="flex gap-2">
                                     <input
                                         type="number"
                                         value={advanceDiscount}
                                         onChange={e => setAdvanceDiscount(e.target.value)}
-                                        className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 font-bold"
+                                        className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                                        placeholder="0"
                                     />
                                     <select
                                         value={advanceDiscountType}
                                         onChange={e => setAdvanceDiscountType(e.target.value)}
-                                        className="rounded-md border border-zinc-200 px-2 py-2 text-xs focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 font-bold"
+                                        className="w-24 rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
                                     >
                                         <option value="PKR">PKR</option>
                                         <option value="PERCENT">%</option>
                                     </select>
                                 </div>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Category *</label>
-                                <select
-                                    value={category} onChange={e => setCategory(e.target.value)}
-                                    required
-                                    className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
-                                >
-                                    <option value="">Select Category</option>
-                                    {categories.map((c) => (
-                                        <option key={c.id} value={c.name}>{c.name}</option>
-                                    ))}
-                                </select>
-                            </div>
                         </div>
-
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Weight (grams)</label>
@@ -327,14 +271,25 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                                 />
                             </div>
                         </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Category</label>
+                            <select
+                                value={category} onChange={e => setCategory(e.target.value)}
+                                className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                            >
+                                {categories.map((c) => (
+                                    <option key={c.id} value={c.name}>{c.name}</option>
+                                ))}
+                            </select>
+                        </div>
 
                         <button
                             type="submit"
-                            disabled={submitting || !isFormValid}
-                            className="w-full mt-6 h-12 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 disabled:opacity-30 disabled:grayscale transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                            disabled={submitting}
+                            className="w-full mt-4 h-10 rounded-md bg-primary text-white font-medium hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                            {!isFormValid ? "Please fill all fields & add image" : "Update Product"}
+                            Update Product
                         </button>
                     </form>
                 </div>

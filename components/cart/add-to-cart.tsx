@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Minus, Plus, ShoppingCart, Loader2 } from "lucide-react";
+import { Minus, Plus, ShoppingCart, Loader2, Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/stores/cart-store";
 import { cn } from "@/lib/utils";
 import { trackAddToCart } from "@/lib/analytics";
+
+import { useRouter } from "next/navigation";
 
 interface AddToCartProps {
     product: {
@@ -19,85 +21,89 @@ interface AddToCartProps {
         weight?: number;
     };
     showQuantitySelector?: boolean;
-    quantity?: number;
     className?: string;
-    variant?: "default" | "outline" | "ghost";
+    variant?: "default" | "outline" | "ghost" | "buy-now";
     size?: "default" | "sm" | "lg" | "icon";
+    isBuyNow?: boolean;
+    hideIcon?: boolean;
 }
 
 export function AddToCart({
     product,
     showQuantitySelector = false,
-    quantity: externalQuantity,
     className,
     variant = "default",
-    size = "default"
+    size = "default",
+    isBuyNow = false,
+    hideIcon = false
 }: AddToCartProps) {
-    const [internalQuantity, setInternalQuantity] = useState(1);
+    const [quantity, setQuantity] = useState(1);
     const [isAdding, setIsAdding] = useState(false);
     const addItem = useCartStore((state) => state.addItem);
+    const router = useRouter();
 
-    const activeQuantity = externalQuantity !== undefined ? externalQuantity : internalQuantity;
-
-    const handleAddToCart = async () => {
+    const handleAction = async () => {
         setIsAdding(true);
-        // Simulate a small delay for better UX
-        await new Promise(resolve => setTimeout(resolve, 300));
-
         addItem({
             id: product.id,
             title: product.title,
             price: product.price,
             image: product.image,
             slug: product.slug,
-            quantity: activeQuantity,
+            quantity: quantity,
             deliveryFee: product.deliveryFee,
             weight: product.weight
         });
 
-        // Tracking
-        trackAddToCart(product, activeQuantity);
+        // Track add to cart event
+        trackAddToCart({
+            id: product.id,
+            title: product.title,
+            price: product.price
+        }, quantity);
 
-        setIsAdding(false);
-        if (externalQuantity === undefined) {
-            setInternalQuantity(1); // reset internal quantity only
+        if (isBuyNow) {
+            router.push('/checkout');
+        } else {
+            // small feedback delay
+            await new Promise(resolve => setTimeout(resolve, 500));
+            setIsAdding(false);
         }
     };
 
     if (showQuantitySelector) {
         return (
-            <div className={cn("flex flex-col gap-3", className)}>
+            <div className={cn("flex flex-col gap-4", className)}>
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-10 w-10 rounded-l-lg hover:bg-zinc-200 dark:hover:bg-zinc-800"
-                            onClick={() => setInternalQuantity(Math.max(1, activeQuantity - 1))}
-                            disabled={activeQuantity <= 1}
+                    <div className="flex items-center rounded-2xl border border-zinc-200 bg-zinc-50 overflow-hidden">
+                        <button
+                            className="h-12 w-12 flex items-center justify-center hover:bg-zinc-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                            disabled={quantity <= 1 || isAdding}
                         >
                             <Minus className="h-4 w-4" />
-                        </Button>
-                        <span className="w-10 text-center font-medium">{activeQuantity}</span>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-10 w-10 rounded-r-lg hover:bg-zinc-200 dark:hover:bg-zinc-800"
-                            onClick={() => setInternalQuantity(activeQuantity + 1)}
+                        </button>
+                        <span className="w-8 text-center font-black text-sm">{quantity}</span>
+                        <button
+                            className="h-12 w-12 flex items-center justify-center hover:bg-zinc-100 transition-colors disabled:opacity-30"
+                            onClick={() => setQuantity(quantity + 1)}
+                            disabled={isAdding}
                         >
                             <Plus className="h-4 w-4" />
-                        </Button>
+                        </button>
                     </div>
 
                     <Button
-                        onClick={handleAddToCart}
+                        onClick={handleAction}
                         disabled={isAdding}
-                        className="flex-1 h-10"
-                        size={size}
-                        variant={variant}
+                        className="flex-1 h-12 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg shadow-black/5 hover:scale-[1.02] active:scale-95 transition-all"
+                        variant="outline"
                     >
-                        {isAdding ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                        {isAdding && !isBuyNow ? (
+                            <div className="flex items-center gap-2">
+                                <Check className="h-4 w-4 text-green-600" />
+                                <span className="text-green-600">Added!</span>
+                            </div>
                         ) : (
                             <>
                                 <ShoppingCart className="mr-2 h-4 w-4" />
@@ -106,6 +112,21 @@ export function AddToCart({
                         )}
                     </Button>
                 </div>
+
+                <Button
+                    onClick={() => {
+                        isBuyNow = true;
+                        handleAction();
+                    }}
+                    disabled={isAdding}
+                    className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-[13px] bg-red-600 hover:bg-red-700 text-white shadow-xl shadow-red-600/20 hover:scale-[1.02] active:scale-95 transition-all"
+                >
+                    {isAdding && isBuyNow ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                        "Buy It Now"
+                    )}
+                </Button>
             </div>
         )
     }
@@ -113,20 +134,20 @@ export function AddToCart({
     return (
         <Button
             onClick={(e) => {
-                e.preventDefault(); // prevent link navigation if inside a card
-                handleAddToCart();
+                e.preventDefault();
+                handleAction();
             }}
             disabled={isAdding}
-            className={cn("", className)}
-            variant={variant}
+            className={cn("rounded-xl font-bold transition-all active:scale-95", className)}
+            variant={variant === "buy-now" ? "default" : variant}
             size={size}
         >
             {isAdding ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
                 <>
-                    <ShoppingCart className={cn("h-4 w-4", size !== "icon" && "mr-2")} />
-                    {size !== "icon" && "Add"}
+                    {!hideIcon && <ShoppingCart className={cn("h-4 w-4", size !== "icon" && "mr-2")} />}
+                    {size !== "icon" && (isBuyNow ? "Quick Buy" : "Add to Cart")}
                 </>
             )}
         </Button>

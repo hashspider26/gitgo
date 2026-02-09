@@ -1,14 +1,14 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState, useEffect, useRef, Suspense } from "react";
-import { ArrowLeft, CheckCircle2, Loader2, ShoppingCart, User as UserIcon, CreditCard, Banknote, Sparkles } from "lucide-react";
+import { useState, useEffect, Suspense } from "react";
+import { ArrowLeft, CheckCircle2, Loader2, ShoppingCart, User as UserIcon } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import { useCartStore } from "@/stores/cart-store";
 import { formatCurrency } from "@/lib/utils";
-import { trackPurchase, trackBeginCheckout } from "@/lib/analytics";
+import { trackPurchase } from "@/lib/analytics";
 
 interface CheckoutItem {
     id: string; // Product ID
@@ -24,6 +24,8 @@ interface CheckoutItem {
 
 export const dynamic = "force-dynamic";
 
+import { ShieldCheck, Lock, Clock, ShoppingBag, Truck, Gift, Smartphone, Building } from "lucide-react";
+
 function CheckoutContent() {
     const { data: session, status: sessionStatus } = useSession();
     const searchParams = useSearchParams();
@@ -36,30 +38,36 @@ function CheckoutContent() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
-    const [orderId, setOrderId] = useState<string | null>(null);
+    const [confirmedOrderId, setConfirmedOrderId] = useState("");
+    const [timeLeft, setTimeLeft] = useState(600); // 10 minutes
     const [paymentMethod, setPaymentMethod] = useState<"COD" | "ADVANCE">("COD");
+
+    // Simple countdown timer
+    useEffect(() => {
+        if (timeLeft <= 0) return;
+        const timer = setInterval(() => setTimeLeft(t => t - 1), 1000);
+        return () => clearInterval(timer);
+    }, [timeLeft]);
+
+    const formatTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
 
     // Form State
     const [formData, setFormData] = useState({
-        firstName: "",
-        lastName: "",
+        fullName: "",
         phone: "",
         address: "",
         city: "",
     });
 
-    // Handle Autofill from Session
     useEffect(() => {
         if (sessionStatus === "authenticated" && session?.user) {
-            const name = session.user.name || "";
-            const nameParts = name.trim().split(/\s+/);
-            const firstName = nameParts[0] || "";
-            const lastName = nameParts.slice(1).join(" ") || "";
-
             setFormData(prev => ({
                 ...prev,
-                firstName: prev.firstName || firstName,
-                lastName: prev.lastName || lastName,
+                fullName: prev.fullName || session.user.name || "",
                 phone: prev.phone || session.user.phone || "",
                 address: prev.address || session.user.address || "",
                 city: prev.city || session.user.city || "",
@@ -68,11 +76,9 @@ function CheckoutContent() {
     }, [session, sessionStatus]);
 
     useEffect(() => {
-        async function fetchDetails() {
-            setLoading(true);
-            try {
-                if (productIdParam) {
-                    // Direct Buy Mode
+        async function fetchProduct() {
+            if (productIdParam) {
+                try {
                     const res = await fetch(`/api/products/${productIdParam}`);
                     if (res.ok) {
                         const product = await res.json();
@@ -94,149 +100,90 @@ function CheckoutContent() {
                             advanceDiscountType: product.advanceDiscountType || "PKR"
                         }]);
                     }
-                } else {
-                    // Cart Mode - We need to fetch full product details to get discounts
-                    // A bit inefficient but necessary for accuracy
-                    const itemPromises = cartItems.map(async (cartItem) => {
-                        const res = await fetch(`/api/products/${cartItem.id}`);
-                        if (res.ok) {
-                            const p = await res.json();
-                            return {
-                                id: cartItem.id,
-                                title: cartItem.title,
-                                price: cartItem.price,
-                                quantity: cartItem.quantity,
-                                image: cartItem.image,
-                                advanceDiscount: p.advanceDiscount || 0,
-                                advanceDiscountType: p.advanceDiscountType || "PKR",
-                                deliveryFee: p.deliveryFee || 0,
-                                weight: p.weight || 0,
-                            };
-                        }
-                        return {
-                            ...cartItem,
-                            deliveryFee: cartItem.deliveryFee || 0,
-                            weight: cartItem.weight || 0
-                        };
-                    });
-                    const fullItems = await Promise.all(itemPromises);
-                    setCheckoutItems(fullItems);
+                } catch (e) {
+                } finally {
+                    setLoading(false);
                 }
-            } catch (e) {
-                console.error(e);
-            } finally {
+            } else {
+                setCheckoutItems(cartItems.map(item => ({
+                    id: item.id,
+                    title: item.title,
+                    price: item.price,
+                    quantity: item.quantity,
+                    deliveryFee: item.deliveryFee || 0,
+                    weight: item.weight || 0,
+                    image: item.image,
+                    advanceDiscount: (item as any).advanceDiscount || 0,
+                    advanceDiscountType: (item as any).advanceDiscountType || "PKR"
+                })));
                 setLoading(false);
             }
         }
-
-        fetchDetails();
+        fetchProduct();
     }, [productIdParam, quantityParam, cartItems]);
 
-
-    // Calculations
     const subtotal = checkoutItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-
-    // Calculate delivery fee based on weight
-    // Calculate delivery fee based on combined weight
-    const totalWeight = checkoutItems.reduce((sum, item) => sum + (item.weight || 0) * item.quantity, 0);
-    const maxBaseFee = checkoutItems.reduce((max, item) => Math.max(max, item.deliveryFee || 0), 0);
-
-    let surcharge = 0;
-    if (totalWeight > 1000) {
-        const extraWeight = totalWeight - 1000;
-        const extraChunks = Math.ceil(extraWeight / 1000);
-        surcharge = extraChunks * 100;
-    }
-    const totalDeliveryFee = checkoutItems.length > 0 ? maxBaseFee + surcharge : 0;
-
-    // Calculate Advance Payment Discount
-    const totalDiscount = checkoutItems.reduce((acc, item) => {
-        const discount = item.advanceDiscount ?? 0;
-        if (!discount || discount <= 0) return acc;
-
-        const discountType = item.advanceDiscountType || "PKR";
-        let itemDiscount = 0;
-        if (discountType === "PERCENT") {
-            itemDiscount = (item.price * discount / 100) * item.quantity;
-        } else {
-            itemDiscount = discount * item.quantity;
-        }
-        return acc + itemDiscount;
+    const totalDeliveryFee = checkoutItems.reduce((totalFee, item) => {
+        const baseDeliveryFee = item.deliveryFee || 0;
+        if (baseDeliveryFee === 0) return totalFee;
+        const itemWeight = item.weight || 0;
+        const totalItemWeight = itemWeight * item.quantity;
+        let multiplier = 1;
+        if (totalItemWeight > 1000) multiplier = Math.ceil(totalItemWeight / 1000);
+        return totalFee + (baseDeliveryFee * multiplier);
     }, 0);
 
-    // Calculate discount details for display
-    const discountDetails = checkoutItems
-        .filter(item => item.advanceDiscount && item.advanceDiscount > 0)
-        .map(item => {
-            // TypeScript guard: we know advanceDiscount exists due to filter above
-            const discount = item.advanceDiscount ?? 0;
-            const discountType = item.advanceDiscountType || "PKR";
-            const itemDiscount = discountType === "PERCENT"
-                ? (item.price * discount / 100) * item.quantity
-                : discount * item.quantity;
-            return {
-                title: item.title,
-                discount: itemDiscount,
-                discountAmount: discount,
-                discountType: discountType
-            };
-        });
+    // Calculate advance discount
+    let totalDiscount = 0;
+    if (paymentMethod === "ADVANCE") {
+        totalDiscount = checkoutItems.reduce((acc, item) => {
+            let discount = 0;
+            if (item.advanceDiscountType === "PERCENT") {
+                discount = (item.price * item.quantity * (item.advanceDiscount || 0)) / 100;
+            } else {
+                discount = (item.advanceDiscount || 0) * item.quantity;
+            }
+            return acc + discount;
+        }, 0);
+    }
 
-    const discountToApply = paymentMethod === "ADVANCE" ? totalDiscount : 0;
-    const total = subtotal + totalDeliveryFee - discountToApply;
-
-    const hasTrackedCheckout = useRef(false);
-    useEffect(() => {
-        if (!loading && checkoutItems.length > 0 && !hasTrackedCheckout.current) {
-            trackBeginCheckout(checkoutItems, total);
-            hasTrackedCheckout.current = true;
-        }
-    }, [loading, checkoutItems.length]);
+    const total = subtotal + totalDeliveryFee - totalDiscount;
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         setSubmitting(true);
-
         const orderData = {
-            firstName: formData.firstName,
-            lastName: formData.lastName,
+            customerName: formData.fullName,
             phone: formData.phone,
             address: formData.address,
             city: formData.city,
-            paymentMethod: paymentMethod,
+            paymentMethod,
+            discountAmount: totalDiscount,
             items: checkoutItems.map(item => ({
                 productId: item.id,
                 quantity: item.quantity
             }))
         };
-
-
-
         try {
             const res = await fetch("/api/orders", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(orderData),
             });
-
             if (res.ok) {
                 const data = await res.json();
-                setOrderId(data.readableId || data.id);
+                const orderId = data.readableId || data.id;
+                setConfirmedOrderId(orderId);
                 setSuccess(true);
-
-                // Tracking
-                trackPurchase(
-                    data.readableId || data.id,
-                    checkoutItems,
-                    total
-                );
-
+                
+                // Track purchase event
+                trackPurchase(orderId, checkoutItems, total);
+                
                 if (!productIdParam) clearCart();
             } else {
-                alert("Failed to place order. Please try again.");
+                alert("Failed to place order. Please check your details and try again.");
             }
         } catch (e) {
-            console.error(e);
             alert("An error occurred. Please try again.");
         } finally {
             setSubmitting(false);
@@ -245,318 +192,276 @@ function CheckoutContent() {
 
     if (success) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-black p-4">
-                <div className="max-w-xl w-full bg-white dark:bg-zinc-900 rounded-3xl shadow-xl shadow-zinc-200/50 dark:shadow-none p-8 sm:p-10 text-center border border-zinc-100 dark:border-zinc-800 animate-in fade-in zoom-in-95 duration-500">
-                    <div className="flex justify-center mb-6">
-                        <div className="h-20 w-20 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center text-green-600 dark:text-green-500">
-                            <CheckCircle2 className="h-10 w-10" />
+            <div className="min-h-screen flex items-center justify-center bg-white p-4">
+                <div className="max-w-md w-full text-center space-y-8 animate-in fade-in zoom-in-95 duration-500">
+                    <div className="flex justify-center">
+                        <div className="h-24 w-24 bg-primary rounded-full flex items-center justify-center text-white shadow-2xl shadow-primary/40 animate-bounce">
+                            <CheckCircle2 className="h-12 w-12" />
                         </div>
                     </div>
-                    <h1 className="text-3xl font-extrabold mb-2 dark:text-white">Order Placed!</h1>
-                    <p className="text-sm font-bold text-primary mb-4">Order ID: #{orderId}</p>
-
-                    {paymentMethod === "ADVANCE" ? (
-                        <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/50 rounded-2xl p-6 mb-8 text-left">
-                            <div className="flex items-center justify-center gap-2 mb-4">
-                                <Sparkles className="h-5 w-5 text-amber-500 fill-amber-500" />
-                                <h3 className="font-black text-blue-900 dark:text-blue-300 text-center uppercase tracking-tighter">Advance Payment Instructions</h3>
-                            </div>
-                            <div className="space-y-4 text-sm text-zinc-700 dark:text-zinc-300">
-                                <div className="p-3 bg-white dark:bg-black rounded-xl border border-blue-100 dark:border-blue-900/30">
-                                    <p className="font-bold text-zinc-900 dark:text-white mb-1">Easypaisa</p>
-                                    <p>Account Title: <span className="font-semibold">Faisal Raza</span></p>
-                                    <p>Account Number: <span className="font-bold text-blue-600 dark:text-blue-400">03081158620</span></p>
-                                </div>
-                                <div className="p-3 bg-white dark:bg-black rounded-xl border border-blue-100 dark:border-blue-900/30">
-                                    <p className="font-bold text-zinc-900 dark:text-white mb-1">MCB Bank</p>
-                                    <p>Account Title: <span className="font-semibold">Faisal Raza</span></p>
-                                    <p>Account Number: <span className="font-bold text-blue-600 dark:text-blue-400">1343607001010465</span></p>
-                                </div>
-                                <div className="pt-2">
-                                    <p className="leading-relaxed">
-                                        Please send <span className="font-bold text-zinc-900 dark:text-white">{formatCurrency(total)}</span> to one of the payment options above.
-                                    </p>
-                                    <p className="mt-3 font-medium bg-amber-50 dark:bg-amber-900/10 p-3 rounded-lg border border-amber-100 dark:border-amber-900/20 text-xs">
-                                        <span className="font-black text-amber-600 uppercase block mb-1">Action Required</span>
-                                        Send a screenshot of the payment to WhatsApp <span className="font-bold text-zinc-900 dark:text-white">03081158620</span> along with Order ID <span className="font-bold text-primary">#{orderId}</span> to confirm your order.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    ) : (
-                        <p className="text-zinc-500 dark:text-zinc-400 mb-8 leading-relaxed">
-                            Thank you for your order, <span className="font-bold text-zinc-900 dark:text-zinc-200">{formData.firstName}</span>. Your order will be delivered to you via Cash on Delivery. We will contact you shortly to confirm.
-                        </p>
-                    )}
-
-                    <div className="space-y-3">
-                        <Link href="/shop" className="flex h-12 items-center justify-center rounded-2xl bg-primary px-8 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98]">
-                            Back to Shop
-                        </Link>
+                    <div>
+                        <h1 className="text-4xl font-black text-zinc-900 mb-2 uppercase tracking-tighter italic">Order Confirmed!</h1>
+                        <p className="text-sm font-bold text-zinc-500 uppercase tracking-widest">We're getting your product ready!</p>
                     </div>
+                    <div className="bg-zinc-50 p-6 rounded-3xl border border-zinc-100 text-left space-y-4">
+                        <div className="flex justify-between text-xs font-black uppercase tracking-widest text-zinc-400">
+                            <span>Ship to</span>
+                            <span className="text-zinc-900">{formData.fullName}</span>
+                        </div>
+                        <div className="flex justify-between text-xs font-black uppercase tracking-widest text-zinc-400">
+                            <span>Method</span>
+                            <span className="text-zinc-900">{paymentMethod === "COD" ? "Cash on Delivery" : "Advance Payment"}</span>
+                        </div>
+                        <div className="h-px bg-zinc-200" />
+                        
+                        {paymentMethod === "COD" ? (
+                            <p className="text-[10px] text-zinc-400 font-medium italic text-center">
+                                A confirmation SMS has been sent to {formData.phone}
+                            </p>
+                        ) : (
+                            <div className="bg-white border border-zinc-200 rounded-2xl p-4 space-y-4">
+                                <h3 className="text-sm font-black uppercase tracking-tight text-center border-b border-zinc-100 pb-2 mb-2">Advance Payment Instructions</h3>
+                                
+                                <div className="space-y-3">
+                                    <div className="text-xs">
+                                        <p className="font-bold text-zinc-900">Easypaisa</p>
+                                        <p className="text-zinc-500">Account Title: <span className="font-medium text-zinc-900">Faisal Raza</span></p>
+                                        <p className="text-zinc-500">Account Number: <span className="font-mono font-bold text-zinc-900">03081158620</span></p>
+                                    </div>
+                                    
+                                    <div className="text-xs">
+                                        <p className="font-bold text-zinc-900">MCB Bank</p>
+                                        <p className="text-zinc-500">Account Title: <span className="font-medium text-zinc-900">Faisal Raza</span></p>
+                                        <p className="text-zinc-500">Account Number: <span className="font-mono font-bold text-zinc-900">1343607001010465</span></p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-zinc-50 p-3 rounded-xl border border-zinc-100 text-[10px] text-zinc-600 space-y-2">
+                                    <p>Please send <span className="font-black text-zinc-900">{formatCurrency(total)}</span> to one of the payment options above.</p>
+                                    
+                                    <div>
+                                        <p className="font-bold text-red-600 uppercase tracking-wider mb-1">Action Required</p>
+                                        <p>Send a screenshot of the payment to WhatsApp <span className="font-bold text-zinc-900">03081158620</span> along with Order ID <span className="font-black text-zinc-900">#{confirmedOrderId}</span> to confirm your order.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <Link href="/" className="flex h-16 w-full items-center justify-center rounded-2xl bg-zinc-900 text-white font-black uppercase tracking-[0.2em] text-xs hover:bg-black transition-all">
+                        Return to Shop
+                    </Link>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-zinc-50 dark:bg-black py-12 px-4 sm:px-6 lg:px-8">
-            <div className="mx-auto max-w-5xl">
-                <div className="flex items-center justify-between mb-10">
-                    <Link href="/shop" className="inline-flex items-center text-sm font-bold text-zinc-500 hover:text-primary transition-colors group">
-                        <div className="h-8 w-8 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center mr-3 group-hover:border-primary">
-                            <ArrowLeft className="h-4 w-4" />
-                        </div>
-                        Back to Shop
+        <div className="min-h-screen bg-white">
+            {/* Simple Logo Header */}
+            <div className="border-b border-zinc-100 italic">
+                <div className="mx-auto max-w-5xl h-20 flex items-center justify-center">
+                    <Link href="/" className="text-xl font-black uppercase tracking-[0.3em] flex items-center gap-2">
+                        Green Valley <span className="text-primary italic">Seeds</span>
                     </Link>
-                    <div className="flex items-center gap-2 px-4 py-1.5 bg-primary/10 rounded-full text-xs font-bold text-primary uppercase tracking-widest border border-primary/20">
-                        <ShoppingCart className="h-3.5 w-3.5" /> Secure Checkout
-                    </div>
+                </div>
+            </div>
+
+            <div className="mx-auto max-w-5xl px-4 py-12">
+                {/* Hurrry Up Banner */}
+                <div className="mb-10 flex items-center justify-center gap-2 text-red-600 animate-pulse">
+                    <Clock className="h-4 w-4" />
+                    <span className="text-xs font-black uppercase tracking-widest">Items reserved for you: <span className="font-mono text-base">{formatTime(timeLeft)}</span></span>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                    {/* Left Column: Form */}
-                    <div className="lg:col-span-7 space-y-8 order-2 lg:order-1">
-                        <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-sm">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+                    {/* Main Flow: Forms and Payment (Left in desktop, Top in mobile) */}
+                    <div className="lg:col-span-12 xl:col-span-7 space-y-10 order-1">
+                        <section>
                             <div className="flex items-center gap-3 mb-8">
-                                <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-                                    <UserIcon className="h-5 w-5" />
+                                <div className="h-8 w-8 bg-black rounded-xl flex items-center justify-center text-white">
+                                    <span className="text-xs font-black">01</span>
                                 </div>
-                                <div>
-                                    <h2 className="text-xl font-bold dark:text-white">Shipping Information</h2>
-                                    <p className="text-xs text-zinc-500 font-medium">Where should we send your seeds?</p>
+                                <h2 className="text-xl font-black uppercase tracking-tighter">Delivery Details</h2>
+                            </div>
+
+                            <form id="checkout-form" onSubmit={handleSubmit} className="space-y-6">
+                                <input
+                                    required
+                                    value={formData.fullName}
+                                    onChange={e => setFormData({ ...formData, fullName: e.target.value })}
+                                    placeholder="Your Full Name"
+                                    className="w-full h-14 bg-zinc-50 border-0 rounded-2xl px-6 text-sm font-bold placeholder:text-zinc-400 focus:ring-2 focus:ring-primary transition-all"
+                                />
+                                <input
+                                    type="tel"
+                                    required
+                                    value={formData.phone}
+                                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                    placeholder="Phone Number (for Courier)"
+                                    className="w-full h-14 bg-zinc-50 border-0 rounded-2xl px-6 text-sm font-bold placeholder:text-zinc-400 focus:ring-2 focus:ring-primary transition-all"
+                                />
+                                <input
+                                    required
+                                    value={formData.city}
+                                    onChange={e => setFormData({ ...formData, city: e.target.value })}
+                                    placeholder="City"
+                                    className="w-full h-14 bg-zinc-50 border-0 rounded-2xl px-6 text-sm font-bold placeholder:text-zinc-400 focus:ring-2 focus:ring-primary transition-all"
+                                />
+                                <textarea
+                                    required
+                                    value={formData.address}
+                                    onChange={e => setFormData({ ...formData, address: e.target.value })}
+                                    placeholder="Complete Delivery Address"
+                                    rows={3}
+                                    className="w-full bg-zinc-50 border-0 rounded-2xl px-6 py-4 text-sm font-bold placeholder:text-zinc-400 focus:ring-2 focus:ring-primary transition-all resize-none"
+                                />
+                            </form>
+                        </section>
+
+                        <section className="space-y-6">
+                            <div className="flex items-center gap-3 mb-8">
+                                <div className="h-8 w-8 bg-black rounded-xl flex items-center justify-center text-white">
+                                    <span className="text-xs font-black">02</span>
+                                </div>
+                                <h2 className="text-xl font-black uppercase tracking-tighter">Payment Mode</h2>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-4">
+                                {/* COD Option */}
+                                <div
+                                    onClick={() => setPaymentMethod("COD")}
+                                    className={`p-4 border transition-all cursor-pointer flex items-center justify-between group rounded-none ${paymentMethod === "COD" ? "border-black bg-zinc-50" : "border-zinc-200 bg-white hover:border-zinc-300"}`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`h-10 w-10 flex items-center justify-center transition-colors rounded-none ${paymentMethod === "COD" ? "bg-white text-black border border-zinc-200" : "bg-zinc-50 text-zinc-400 group-hover:bg-zinc-100"}`}>
+                                        
+                                            <Smartphone className="h-5 w-5" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold uppercase tracking-wide">Cash on Delivery</p>
+                                            <p className="text-[10px] font-medium text-zinc-500">Pay on arrival</p>
+                                        </div>
+                                    </div>
+                                    <div className={`h-5 w-5 rounded-full border-2 transition-all ${paymentMethod === "COD" ? "border-black bg-black" : "border-zinc-300 bg-white"}`} />
+                                </div>
+
+                                {/* Advance Payment Option */}
+                                <div
+                                    onClick={() => setPaymentMethod("ADVANCE")}
+                                    className={`p-4 border transition-all cursor-pointer flex items-center justify-between group rounded-none ${paymentMethod === "ADVANCE" ? "border-black bg-zinc-50" : "border-zinc-200 bg-white hover:border-zinc-300"}`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`h-10 w-10 flex items-center justify-center transition-colors rounded-none ${paymentMethod === "ADVANCE" ? "bg-white text-black border border-zinc-200" : "bg-zinc-50 text-zinc-400 group-hover:bg-zinc-100"}`}>
+                                            <Building className="h-5 w-5" />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-xs font-bold uppercase tracking-wide">Advance Payment</p>
+                                                <span className="bg-green-100 text-green-700 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-none">Save Extra</span>
+                                            </div>
+                                            <p className="text-[10px] font-medium text-zinc-500">Bank/EasyPaisa</p>
+                                        </div>
+                                    </div>
+                                    <div className={`h-5 w-5 rounded-full border-2 transition-all ${paymentMethod === "ADVANCE" ? "border-black bg-black" : "border-zinc-300 bg-white"}`} />
                                 </div>
                             </div>
 
-                            <form onSubmit={handleSubmit} className="space-y-6">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider ml-1">First Name</label>
-                                        <input
-                                            required
-                                            value={formData.firstName}
-                                            onChange={e => setFormData({ ...formData, firstName: e.target.value })}
-                                            className="w-full rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-black px-4 py-3.5 text-sm font-medium focus:border-primary focus:ring-4 focus:ring-primary/5 focus:outline-none transition-all placeholder:text-zinc-400 placeholder:font-normal"
-                                            placeholder="Enter first name"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider ml-1">Last Name</label>
-                                        <input
-                                            required
-                                            value={formData.lastName}
-                                            onChange={e => setFormData({ ...formData, lastName: e.target.value })}
-                                            className="w-full rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-black px-4 py-3.5 text-sm font-medium focus:border-primary focus:ring-4 focus:ring-primary/5 focus:outline-none transition-all placeholder:text-zinc-400 placeholder:font-normal"
-                                            placeholder="Enter last name"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider ml-1">Phone Number</label>
-                                    <input
-                                        type="tel"
-                                        required
-                                        value={formData.phone}
-                                        onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                        placeholder="Enter phone number"
-                                        className="w-full rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-black px-4 py-3.5 text-sm font-medium focus:border-primary focus:ring-4 focus:ring-primary/5 focus:outline-none transition-all placeholder:text-zinc-400 placeholder:font-normal"
-                                    />
-                                    <p className="text-[10px] text-zinc-400 ml-1 font-medium">We only use this to coordinate your delivery</p>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider ml-1">Complete Address</label>
-                                    <textarea
-                                        required
-                                        value={formData.address}
-                                        onChange={e => setFormData({ ...formData, address: e.target.value })}
-                                        rows={3}
-                                        className="w-full rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-black px-4 py-3.5 text-sm font-medium focus:border-primary focus:ring-4 focus:ring-primary/5 focus:outline-none transition-all resize-none placeholder:text-zinc-400 placeholder:font-normal"
-                                        placeholder="Enter address"
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider ml-1">City</label>
-                                    <input
-                                        required
-                                        value={formData.city}
-                                        onChange={e => setFormData({ ...formData, city: e.target.value })}
-                                        className="w-full rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-black px-4 py-3.5 text-sm font-medium focus:border-primary focus:ring-4 focus:ring-primary/5 focus:outline-none transition-all placeholder:text-zinc-400 placeholder:font-normal"
-                                        placeholder="Enter city"
-                                    />
-                                </div>
-
-                                {/* Payment Method Selection */}
-                                <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider ml-1 mb-4 block">Select Payment Method</label>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <button
-                                            type="button"
-                                            onClick={() => setPaymentMethod("COD")}
-                                            className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${paymentMethod === "COD"
-                                                ? "bg-primary/5 border-primary ring-2 ring-primary/10"
-                                                : "bg-white dark:bg-zinc-900 border-zinc-100 dark:border-zinc-800 hover:border-zinc-200"}`}
-                                        >
-                                            <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${paymentMethod === "COD" ? "bg-primary text-white" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"}`}>
-                                                <Banknote className="h-5 w-5" />
-                                            </div>
-                                            <div className="text-left">
-                                                <p className="text-sm font-bold dark:text-white">Cash on Delivery</p>
-                                                <p className="text-[10px] text-zinc-500 font-medium">Standard Price</p>
-                                            </div>
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            onClick={() => setPaymentMethod("ADVANCE")}
-                                            className={`flex items-center gap-4 p-4 rounded-2xl border transition-all relative overflow-hidden ${paymentMethod === "ADVANCE"
-                                                ? "bg-primary/5 border-primary ring-2 ring-primary/10"
-                                                : "bg-white dark:bg-zinc-900 border-zinc-100 dark:border-zinc-800 hover:border-zinc-200"}`}
-                                        >
-                                            {totalDiscount > 0 && (
-                                                <div className="absolute top-0 right-0 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-[9px] font-black px-3 py-1.5 rounded-bl-xl uppercase tracking-tighter flex items-center gap-1 shadow-lg">
-                                                    <Sparkles className="h-2.5 w-2.5 fill-white" /> Save {formatCurrency(totalDiscount)}
-                                                </div>
-                                            )}
-                                            <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${paymentMethod === "ADVANCE" ? "bg-primary text-white" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"}`}>
-                                                <CreditCard className="h-5 w-5" />
-                                            </div>
-                                            <div className="text-left flex-1">
-                                                <p className="text-sm font-bold dark:text-white">
-                                                    Advance Payment
-                                                </p>
-                                                {totalDiscount > 0 ? (
-                                                    <div className="text-[10px] font-semibold text-primary dark:text-primary-400 mt-0.5">
-                                                        Save {formatCurrency(totalDiscount)} • {discountDetails.length > 0 && (
-                                                            discountDetails.map((detail, idx) => (
-                                                                <span key={idx}>
-                                                                    {detail.discountType === "PERCENT" 
-                                                                        ? `${detail.discountAmount}%`
-                                                                        : formatCurrency(detail.discountAmount)}
-                                                                    {idx < discountDetails.length - 1 && " + "}
-                                                                </span>
-                                                            ))
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-[10px] text-zinc-500 font-medium">Easypaisa / Bank Transfer</p>
-                                                )}
-                                            </div>
-                                        </button>
-                                    </div>
-                                </div>
-
+                            {/* Place Order Button brought here */}
+                            <div className="pt-6">
                                 <button
+                                    form="checkout-form"
                                     type="submit"
-                                    disabled={submitting}
-                                    className="w-full mt-6 h-14 rounded-2xl bg-primary text-white font-bold shadow-xl shadow-primary/20 hover:bg-primary/90 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                                    disabled={submitting || checkoutItems.length === 0}
+                                    className="w-full h-14 bg-black text-white font-bold uppercase tracking-widest text-xs shadow-lg hover:bg-zinc-900 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 rounded-none"
                                 >
                                     {submitting ? (
-                                        <Loader2 className="h-6 w-6 animate-spin" />
+                                        <Loader2 className="h-5 w-5 animate-spin" />
                                     ) : (
-                                        <>Place Order Now</>
+                                        "Place Order"
                                     )}
                                 </button>
-                                <p className="text-[10px] text-center text-zinc-400 font-medium italic">
-                                    {paymentMethod === "ADVANCE"
-                                        ? `Total to pay: ${formatCurrency(total)} (Discount of ${formatCurrency(totalDiscount ?? 0)} included)`
-                                        : "Standard pricing applies for Cash on Delivery."
-                                    }
-                                </p>
-                            </form>
-                        </div>
+                                <p className="mt-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-center">By clicking, you agree to our standard terms of sale.</p>
+                            </div>
+                        </section>
                     </div>
 
-                    {/* Right Column: Summary */}
-                    <div className="lg:col-span-5 order-1 lg:order-2">
-                        <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-zinc-100 dark:border-zinc-800 shadow-sm sticky top-28">
-                            <h3 className="text-lg font-bold mb-6 flex justify-between items-center">
-                                Order Summary
-                                <span className="bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded text-[10px] text-zinc-500 uppercase tracking-tighter">
-                                    {checkoutItems.length} Item{checkoutItems.length !== 1 && 's'}
-                                </span>
-                            </h3>
+                    {/* Order Summary (Right in desktop, Bottom in mobile) */}
+                    <div className="lg:col-span-12 xl:col-span-5 order-2">
+                        <div className="bg-zinc-50 p-8 rounded-[40px] sticky top-8">
+                            <div className="flex items-center gap-2 mb-8 italic">
+                                <ShoppingBag className="h-5 w-5 text-zinc-400" />
+                                <h3 className="text-lg font-black uppercase tracking-tighter italic">Order Summary</h3>
+                            </div>
 
-                            {loading ? (
-                                <div className="animate-pulse space-y-4">
-                                    <div className="h-10 bg-zinc-100 rounded-xl" />
-                                    <div className="h-10 bg-zinc-100 rounded-xl" />
-                                    <div className="h-10 bg-zinc-100 rounded-xl" />
-                                </div>
-                            ) : checkoutItems.length > 0 ? (
-                                <div className="space-y-6">
-                                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                                        {checkoutItems.map((item) => (
-                                            <div key={item.id} className="flex gap-4 p-3 bg-zinc-50 dark:bg-black rounded-xl border border-transparent dark:border-zinc-800">
-                                                {item.image && (
-                                                    <div className="relative h-12 w-12 rounded-lg overflow-hidden flex-shrink-0">
-                                                        <Image src={item.image} alt={item.title} fill className="object-cover" />
-                                                    </div>
-                                                )}
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate">{item.title}</p>
-                                                    <p className="text-xs text-zinc-500 mt-0.5 flex justify-between">
-                                                        <span>Qty: {item.quantity}</span>
-                                                        <span>{formatCurrency(item.price)} each</span>
-                                                    </p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-sm font-bold">{formatCurrency(item.price * item.quantity)}</p>
+                            <div className="space-y-4 mb-8 max-h-[300px] overflow-y-auto overflow-x-hidden pr-2 scrollbar-none">
+                                {loading ? (
+                                    <div className="space-y-4">
+                                        {[1, 2].map((i) => (
+                                            <div key={i} className="flex gap-4 items-center animate-pulse">
+                                                <div className="h-16 w-16 bg-zinc-200 rounded-2xl flex-shrink-0" />
+                                                <div className="flex-1 space-y-2">
+                                                    <div className="h-3 w-3/4 bg-zinc-200 rounded" />
+                                                    <div className="h-2 w-1/2 bg-zinc-200 rounded" />
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
-
-                                    <div className="space-y-3 px-1 pt-2">
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-zinc-500 font-medium">Subtotal</span>
-                                            <span className="font-bold">{formatCurrency(subtotal)}</span>
-                                        </div>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-zinc-500 font-medium">Shipping</span>
-                                            {totalDeliveryFee > 0 ? (
-                                                <span className="font-bold">{formatCurrency(totalDeliveryFee)}</span>
-                                            ) : (
-                                                <span className="text-green-600 font-bold uppercase text-[10px] tracking-widest bg-green-50 px-1.5 py-0.5 rounded">Free</span>
-                                            )}
-                                        </div>
-                                        {paymentMethod === "ADVANCE" && totalDiscount > 0 && (
-                                            <div className="flex justify-between text-sm bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-blue-700 dark:text-blue-400 animate-in slide-in-from-top-1">
-                                                <span className="font-bold flex items-center gap-1.5">
-                                                    <Sparkles className="h-3.5 w-3.5 fill-blue-600 dark:fill-blue-400" />
-                                                    Advance Payment Discount
-                                                </span>
-                                                <span className="font-black text-base">-{formatCurrency(totalDiscount)}</span>
+                                ) : (
+                                    checkoutItems.map((item) => (
+                                        <div key={item.id} className="flex gap-4 items-center">
+                                            <div className="relative h-16 w-16 bg-white rounded-2xl border border-zinc-100 overflow-hidden flex-shrink-0">
+                                                {item.image && <Image src={item.image} alt={item.title} fill className="object-cover" />}
+                                                <div className="absolute -top-1 -right-1 bg-black text-white h-5 w-5 rounded-full text-[10px] font-black flex items-center justify-center">
+                                                    {item.quantity}
+                                                </div>
                                             </div>
-                                        )}
-                                    </div>
-
-                                    <div className="border-t border-zinc-100 dark:border-zinc-800 pt-6 flex justify-between items-center text-primary">
-                                        <span className="text-lg font-extrabold">Total Amount</span>
-                                        <div className="text-right">
-                                            <span className="text-2xl font-black block leading-none">
-                                                {formatCurrency(total)}
-                                            </span>
-                                            {paymentMethod === "ADVANCE" && (
-                                                <span className="text-[10px] font-bold uppercase tracking-tighter">Savings included</span>
-                                            )}
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-black text-zinc-900 uppercase tracking-tight leading-none mb-1 truncate">{item.title}</p>
+                                                <p className="text-[10px] font-black text-zinc-400">{formatCurrency(item.price)} each</p>
+                                            </div>
+                                            <p className="text-xs font-black">{formatCurrency(item.price * item.quantity)}</p>
                                         </div>
-                                    </div>
+                                    ))
+                                )}
+                            </div>
 
-                                    <div className="pt-4 bg-primary/5 rounded-2xl p-4 border border-dashed border-primary/20">
-                                        <p className="text-[10px] text-primary font-bold uppercase tracking-widest text-center">Guaranteed fresh & high-quality seeds</p>
-                                    </div>
+                            <div className="space-y-3 pt-6 border-t border-zinc-200">
+                                <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-zinc-400">
+                                    <span>Subtotal</span>
+                                    <span className="text-zinc-900">{formatCurrency(subtotal)}</span>
                                 </div>
-                            ) : (
-                                <div className="text-sm text-zinc-500 py-10 text-center">
-                                    Your cart is empty.
-                                    <div className="mt-4">
-                                        <Link href="/shop" className="text-primary hover:underline">Continue Shopping</Link>
-                                    </div>
+                                <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-zinc-400">
+                                    <span>Shipping</span>
+                                    {totalDeliveryFee > 0 ? (
+                                        <span className="text-zinc-900">{formatCurrency(totalDeliveryFee)}</span>
+                                    ) : (
+                                        <span className="text-primary tracking-widest bg-primary/10 px-2 py-0.5 rounded-lg active">FREE</span>
+                                    )}
                                 </div>
-                            )}
+                                {totalDiscount > 0 && (
+                                    <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-green-600">
+                                        <span>Advance Discount</span>
+                                        <span>-{formatCurrency(totalDiscount)}</span>
+                                    </div>
+                                )}
+                                <div className="h-px bg-zinc-200 my-4" />
+                                <div className="flex justify-between items-end pb-8">
+                                    <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">Grand Total</p>
+                                    <p className="text-3xl font-black tracking-tighter text-zinc-900 italic leading-none">{formatCurrency(total)}</p>
+                                </div>
+                            </div>
+
+                            <div className="mt-4 space-y-4">
+                                <div className="flex items-center justify-center gap-6">
+                                    <ShieldCheck className="h-8 w-8 text-zinc-300" />
+                                    <Gift className="h-8 w-8 text-zinc-300" />
+                                    <Truck className="h-8 w-8 text-zinc-300" />
+                                </div>
+                                <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest text-center leading-relaxed">
+                                    Guaranteed High Quality <br />
+                                    Secure Dispatch
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -567,7 +472,7 @@ function CheckoutContent() {
 
 export default function CheckoutPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-black"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>}>
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-white"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>}>
             <CheckoutContent />
         </Suspense>
     );

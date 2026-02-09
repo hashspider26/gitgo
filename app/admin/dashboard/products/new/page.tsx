@@ -139,12 +139,36 @@ export default function NewProductPage() {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Price (PKR)</label>
-                                <input name="price" type="number" required className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900" />
+                                <label className="text-sm font-medium">Sale Price (PKR)</label>
+                                <input name="price" type="number" required className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900" placeholder="Discounted Price" />
                             </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Original Price (PKR)</label>
+                                <input name="salePrice" type="number" className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900" placeholder="Old Price (Optional)" />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Stock</label>
                                 <input name="stock" type="number" defaultValue={10} required className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900" />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-blue-600 font-bold">Advance Payment Discount</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        name="advanceDiscount"
+                                        type="number"
+                                        defaultValue={0}
+                                        className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                                    />
+                                    <select
+                                        name="advanceDiscountType"
+                                        className="w-24 rounded-md border border-zinc-200 px-3 py-2 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                                    >
+                                        <option value="PKR">PKR</option>
+                                        <option value="PERCENT">%</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">

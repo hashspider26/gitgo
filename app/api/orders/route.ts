@@ -8,130 +8,99 @@ export async function POST(request: Request) {
         const body = await request.json();
         const session = await getServerSession(authOptions);
 
-        const { firstName, lastName, phone, address, city, items, paymentMethod = "COD" } = body;
+        // In a real app validate body via Zod
+        const { firstName, lastName, phone, address, city, items } = body;
 
         if (!items || items.length === 0) {
             return NextResponse.json({ error: "No items in order" }, { status: 400 });
         }
 
-        // Generate sequential human-readable ID
-        const orderCount = await prisma.order.count();
-        const nextIdNumber = orderCount + 1;
-        const readableId = `GVS-${nextIdNumber.toString().padStart(5, '0')}`;
-
-
-
-        // Variables for calculation
-        let subtotal = 0;
-        let totalDeliveryFee = 0;
-        let totalDiscount = 0;
-        const validItems: any[] = [];
-
-        let orderTotalWeight = 0;
-        let orderMaxBaseFee = 0;
+        let totalAmount = 0;
+        const orderItems: any[] = [];
 
         for (const item of items) {
-            const products = await prisma.$queryRaw`SELECT * FROM "Product" WHERE id = ${item.productId} LIMIT 1` as any[];
-            if (!products || products.length === 0) continue;
-            const rawProduct = products[0];
-            const getProdVal = (key: string) => {
-                const lowerKey = key.toLowerCase();
-                const actualKey = Object.keys(rawProduct).find(k => k.toLowerCase() === lowerKey);
-                return actualKey ? rawProduct[actualKey] : undefined;
-            };
-
-            const product = {
-                id: getProdVal('id'),
-                price: Number(getProdVal('price') || 0),
-                weight: Number(getProdVal('weight') || 0),
-                deliveryFee: Number(getProdVal('deliveryFee') || 0),
-                advanceDiscount: Number(getProdVal('advanceDiscount') || 0),
-                advanceDiscountType: getProdVal('advanceDiscountType') || 'PKR'
-            };
+            const product = await prisma.product.findUnique({ where: { id: item.productId } });
+            if (!product) continue;
 
             const productTotal = product.price * item.quantity;
-            subtotal += productTotal;
+            const deliveryFee = (product as any).deliveryFee || 0;
+            totalAmount += productTotal + deliveryFee;
 
-            // Accumulate weight and find max base fee
-            orderTotalWeight += (product.weight || 0) * item.quantity;
-            orderMaxBaseFee = Math.max(orderMaxBaseFee, product.deliveryFee || 0);
-
-            // Discount calculation for advance payment
-            if (product.advanceDiscount && product.advanceDiscount > 0) {
-                let itemDiscount = 0;
-                if (product.advanceDiscountType === "PERCENT") {
-                    itemDiscount = (product.price * product.advanceDiscount / 100) * item.quantity;
-                } else {
-                    itemDiscount = product.advanceDiscount * item.quantity;
-                }
-                totalDiscount += itemDiscount;
-            }
-
-            validItems.push({
+            orderItems.push({
                 productId: product.id,
                 quantity: item.quantity,
                 price: product.price
             });
         }
 
-        // Calculate final delivery fee
-        if (validItems.length > 0) {
-            let surcharge = 0;
-            if (orderTotalWeight > 1000) {
-                const extraWeight = orderTotalWeight - 1000;
-                const extraChunks = Math.ceil(extraWeight / 1000);
-                surcharge = extraChunks * 100;
-            }
-            totalDeliveryFee = orderMaxBaseFee + surcharge;
-        }
-
-        const discountToApply = paymentMethod === "ADVANCE" ? totalDiscount : 0;
-        const totalAmount = subtotal + totalDeliveryFee - discountToApply;
-
-        console.log("Order Calculation Debug:", {
-            subtotal,
-            totalDeliveryFee,
-            totalDiscount,
-            discountToApply,
-            totalAmount,
-            paymentMethod
-        });
-
-        if (validItems.length === 0) {
+        if (orderItems.length === 0) {
             return NextResponse.json({ error: "No valid products found" }, { status: 400 });
         }
 
-        const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-        const customerName = `${firstName} ${lastName}`;
-        const userId = session?.user?.id || null;
-        const now = new Date().toISOString();
+        const orderData = {
+            customerName: firstName && lastName ? `${firstName} ${lastName}` : body.customerName || "Customer",
+            phone,
+            address,
+            city,
+            totalAmount,
+            discountAmount: body.discountAmount || 0,
+            paymentMethod: body.paymentMethod || "COD",
+            status: "PENDING" as const,
+            userId: session?.user?.id || null,
+            items: { create: orderItems }
+        };
 
-        await prisma.$transaction(async (tx) => {
-            // Use tx.$executeRaw with template literals for safer/better parameter binding
-            await tx.$executeRaw`
-                INSERT INTO "Order" (id, readableId, customerName, phone, address, city, totalAmount, discountAmount, paymentMethod, status, stockDeducted, userId, createdAt, updatedAt)
-                VALUES (${orderId}, ${readableId}, ${customerName}, ${phone}, ${address}, ${city}, ${totalAmount}, ${discountToApply}, ${paymentMethod}, 'PENDING', 0, ${userId}, ${now}, ${now})
-            `;
-
-            for (const item of validItems) {
-                const itemId = `item_${Math.random().toString(36).slice(2, 9)}`;
-                await tx.$executeRaw`
-                    INSERT INTO "OrderItem" (id, orderId, productId, quantity, price)
-                    VALUES (${itemId}, ${orderId}, ${item.productId}, ${item.quantity}, ${item.price})
-                `;
+        let order: any = null;
+        const maxAttempts = 10;
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            const ordersWithReadable = await prisma.order.findMany({
+                where: { readableId: { not: null } },
+                select: { readableId: true }
+            });
+            let maxNum = 0;
+            for (const o of ordersWithReadable) {
+                const m = (o.readableId || "").match(/^GVS-(\d+)$/);
+                if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
             }
-        });
+            const nextIdNumber = maxNum + 1;
+            const readableId = `GVS-${nextIdNumber.toString().padStart(5, "0")}`;
 
-        if (userId) {
             try {
-                await (prisma.user as any).update({
-                    where: { id: userId },
-                    data: { phone, address, city }
+                order = await (prisma.order as any).create({
+                    data: { readableId, ...orderData }
                 });
-            } catch (e) { }
+                break;
+            } catch (err: any) {
+                const isUniqueViolation = err?.code === "P2002" || (err?.message && String(err.message).includes("UNIQUE constraint failed"));
+                if (isUniqueViolation && attempt < maxAttempts - 1) {
+                    continue;
+                }
+                throw err;
+            }
         }
 
-        return NextResponse.json({ id: orderId, readableId });
+        if (!order) {
+            return NextResponse.json({ error: "Failed to create order (readableId)" }, { status: 500 });
+        }
+
+        // Auto-save user details to profile if logged in
+        if (session?.user?.id) {
+            try {
+                // Use type casting to bypass temporary Prisma Client sync issues (EPERM during generate)
+                await (prisma.user as any).update({
+                    where: { id: session.user.id },
+                    data: {
+                        phone: phone || (session.user as any).phone,
+                        address: address || (session.user as any).address,
+                        city: city || (session.user as any).city,
+                    }
+                });
+            } catch (profileError) {
+                console.warn("User profile auto-save failed (likely client out of sync):", profileError);
+            }
+        }
+
+        return NextResponse.json(order);
     } catch (error: any) {
         console.error("Order creation error:", error);
         return NextResponse.json({
@@ -142,44 +111,14 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
+    // Check auth - admin only
     try {
-        // Switch to Raw SQL for fetching as well to ensure we get custom columns 
-        // even if Prisma Client is struggling with the schema sync
-        const orders = await prisma.$queryRaw`
-            SELECT 
-                o.*,
-                (SELECT json_group_array(
-                    json_object(
-                        'id', oi.id,
-                        'orderId', oi.orderId,
-                        'productId', oi.productId,
-                        'quantity', oi.quantity,
-                        'price', oi.price,
-                        'product', (SELECT json_object('id', p.id, 'title', p.title, 'images', p.images) FROM "Product" p WHERE p.id = oi.productId)
-                    )
-                ) FROM "OrderItem" oi WHERE oi.orderId = o.id) as items
-            FROM "Order" o
-            ORDER BY o.createdAt DESC
-        `;
-
-        // Parse items JSON string back to object
-        const parsedOrders = (orders as any[]).map(order => ({
-            ...order,
-            items: order.items ? JSON.parse(order.items) : []
-        }));
-
-        return NextResponse.json(parsedOrders);
-    } catch (error: any) {
-        console.error("Failed to fetch orders:", error);
-        // Fallback to prisma if raw fails (though raw is safer here)
-        try {
-            const orders = await prisma.order.findMany({
-                include: { items: { include: { product: true } } },
-                orderBy: { createdAt: "desc" }
-            });
-            return NextResponse.json(orders);
-        } catch (e) {
-            return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 });
-        }
+        const orders = await prisma.order.findMany({
+            include: { items: { include: { product: true } } },
+            orderBy: { createdAt: "desc" }
+        });
+        return NextResponse.json(orders);
+    } catch (error) {
+        return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 });
     }
 }

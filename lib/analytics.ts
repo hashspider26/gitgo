@@ -1,4 +1,5 @@
 import { sendGAEvent } from "@next/third-parties/google";
+import { trackEvent } from "@/components/analytics/tracker";
 
 /**
  * Declare global fbq for Meta Pixel
@@ -10,7 +11,7 @@ declare global {
 }
 
 /**
- * Standard Analytics Events (GA4 + Meta Pixel)
+ * Standard Analytics Events (GA4 + Meta Pixel + Internal)
  */
 
 export const trackViewItem = (product: { id: string; title: string; price: number }) => {
@@ -27,16 +28,38 @@ export const trackViewItem = (product: { id: string; title: string; price: numbe
         }]
     });
 
-    // Meta Pixel
-    if (typeof window.fbq !== "undefined") {
-        window.fbq("track", "ViewContent", {
-            content_ids: [product.id],
-            content_name: product.title,
-            content_type: "product",
-            value: product.price,
-            currency: "PKR",
-        });
+    // Meta Pixel - ViewContent event (Product Viewed)
+    if (typeof window !== "undefined" && typeof window.fbq !== "undefined") {
+        try {
+            window.fbq("track", "ViewContent", {
+                content_ids: [product.id],
+                content_name: product.title,
+                content_type: "product",
+                value: product.price,
+                currency: "PKR",
+            });
+            console.log("📊 Meta Pixel: ViewContent tracked", product.title);
+        } catch (error) {
+            console.error("Meta Pixel ViewContent error:", error);
+        }
+    } else {
+        // Queue event if pixel not loaded yet (fbq queue handles this automatically)
+        if (typeof window !== "undefined" && typeof (window as any)._fbq !== "undefined") {
+            (window as any)._fbq("track", "ViewContent", {
+                content_ids: [product.id],
+                content_name: product.title,
+                content_type: "product",
+                value: product.price,
+                currency: "PKR",
+            });
+        }
     }
+
+    // Internal Tracking
+    trackEvent('VIEW_PRODUCT', {
+        productId: product.id,
+        metadata: { title: product.title, price: product.price }
+    });
 };
 
 export const trackAddToCart = (product: { id: string; title: string; price: number }, quantity: number = 1) => {
@@ -53,16 +76,38 @@ export const trackAddToCart = (product: { id: string; title: string; price: numb
         }]
     });
 
-    // Meta Pixel
-    if (typeof window.fbq !== "undefined") {
-        window.fbq("track", "AddToCart", {
-            content_ids: [product.id],
-            content_name: product.title,
-            content_type: "product",
-            value: product.price * quantity,
-            currency: "PKR",
-        });
+    // Meta Pixel - AddToCart event
+    if (typeof window !== "undefined" && typeof window.fbq !== "undefined") {
+        try {
+            window.fbq("track", "AddToCart", {
+                content_ids: [product.id],
+                content_name: product.title,
+                content_type: "product",
+                value: product.price * quantity,
+                currency: "PKR",
+            });
+            console.log("📊 Meta Pixel: AddToCart tracked", product.title, "Qty:", quantity);
+        } catch (error) {
+            console.error("Meta Pixel AddToCart error:", error);
+        }
+    } else {
+        // Queue event if pixel not loaded yet
+        if (typeof window !== "undefined" && typeof (window as any)._fbq !== "undefined") {
+            (window as any)._fbq("track", "AddToCart", {
+                content_ids: [product.id],
+                content_name: product.title,
+                content_type: "product",
+                value: product.price * quantity,
+                currency: "PKR",
+            });
+        }
     }
+
+    // Internal Tracking
+    trackEvent('ADD_TO_CART', {
+        productId: product.id,
+        metadata: { title: product.title, price: product.price, quantity }
+    });
 };
 
 export const trackBeginCheckout = (items: any[], total: number) => {
@@ -89,6 +134,15 @@ export const trackBeginCheckout = (items: any[], total: number) => {
             num_items: items.reduce((acc, item) => acc + item.quantity, 0),
         });
     }
+
+    // Internal Tracking
+    trackEvent('INITIATE_CHECKOUT', {
+        metadata: {
+            total,
+            itemCount: items.length,
+            items: items.map(i => i.id || i.productId)
+        }
+    });
 };
 
 export const trackPurchase = (orderId: string, items: any[], total: number) => {
@@ -106,14 +160,41 @@ export const trackPurchase = (orderId: string, items: any[], total: number) => {
         }))
     });
 
-    // Meta Pixel
-    if (typeof window.fbq !== "undefined") {
-        window.fbq("track", "Purchase", {
-            content_ids: items.map(item => item.id || item.productId),
-            content_type: "product",
-            value: total,
-            currency: "PKR",
-            num_items: items.reduce((acc, item) => acc + item.quantity, 0),
-        });
+    // Meta Pixel - Purchase event (Item Purchased)
+    if (typeof window !== "undefined" && typeof window.fbq !== "undefined") {
+        try {
+            window.fbq("track", "Purchase", {
+                content_ids: items.map(item => item.id || item.productId),
+                content_name: items.map(item => item.title || "Product").join(", "),
+                content_type: "product",
+                value: total,
+                currency: "PKR",
+                num_items: items.reduce((acc, item) => acc + item.quantity, 0),
+            });
+            console.log("📊 Meta Pixel: Purchase tracked", "Order:", orderId, "Total:", total);
+        } catch (error) {
+            console.error("Meta Pixel Purchase error:", error);
+        }
+    } else {
+        // Queue event if pixel not loaded yet
+        if (typeof window !== "undefined" && typeof (window as any)._fbq !== "undefined") {
+            (window as any)._fbq("track", "Purchase", {
+                content_ids: items.map(item => item.id || item.productId),
+                content_name: items.map(item => item.title || "Product").join(", "),
+                content_type: "product",
+                value: total,
+                currency: "PKR",
+                num_items: items.reduce((acc, item) => acc + item.quantity, 0),
+            });
+        }
     }
+
+    // Internal Tracking
+    trackEvent('PURCHASE', {
+        metadata: {
+            orderId,
+            total,
+            itemCount: items.length
+        }
+    });
 };

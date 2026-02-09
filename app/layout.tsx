@@ -8,6 +8,7 @@ import { Footer } from "@/components/shared/footer";
 import { TopLoadingBar } from "@/components/shared/loading";
 import { GlobalLinkHandler } from "@/components/shared/global-link-handler";
 import { MetaPixel } from "@/components/analytics/meta-pixel";
+import { AnalyticsTracker } from "@/components/analytics/tracker";
 
 const geistSans = Roboto({
   variable: "--font-geist-sans",
@@ -35,14 +36,25 @@ export default function RootLayout({
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
 
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen`}>
+    <html lang="en" className="light" style={{ colorScheme: 'light' }} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              document.documentElement.classList.remove('dark');
+              document.documentElement.classList.add('light');
+            `,
+          }}
+        />
+      </head>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-white text-zinc-900`}>
         {gaId && <GoogleAnalytics gaId={gaId} />}
         <MetaPixel />
         <AppProviders>
           <GlobalLinkHandler />
           <Suspense fallback={null}>
             <TopLoadingBar />
+            <AnalyticsTracker />
           </Suspense>
           <Navbar />
           <main className="min-h-[calc(100vh-7rem)]">{children}</main>
