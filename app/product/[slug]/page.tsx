@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Truck, Sprout, Share2, Shield } from "lucide-react";
+import { ArrowLeft, Sprout, Share2 } from "lucide-react";
 import { Metadata } from "next";
 import { ImageGallery } from "@/components/shared/image-gallery";
 import { ProductActions } from "@/components/product/product-actions";
@@ -138,23 +138,9 @@ export default async function ProductPage({ params }: Props) {
                                 )}
                             </div>
 
-                            <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100 space-y-3 mb-8">
-                                <div className="flex items-center gap-2 text-xs font-bold text-zinc-600">
-                                    <Truck className="h-4 w-4 text-primary" />
-                                    <span>
-                                        {(p.deliveryFee || 0) === 0 
-                                            ? "Free Delivery" 
-                                            : `Delivery Charges: ${formatPrice(p.deliveryFee)}`}
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-2 text-xs font-bold text-zinc-600">
-                                    <Shield className="h-4 w-4 text-primary" />
-                                    <span>Safe & Secure Cash on Delivery</span>
-                                </div>
-                            </div>
                         </div>
 
-                        {/* Conversion Section */}
+                        {/* Conversion Section (quantity, delivery, actions) */}
                         <div className="space-y-6">
                             <ProductActions
                                 product={{

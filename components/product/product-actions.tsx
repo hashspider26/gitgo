@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Share2, Check, Shield, ShoppingCart } from "lucide-react";
+import { Share2, Check, Shield, ShoppingCart, Minus, Plus, Truck } from "lucide-react";
 import { AddToCart } from "@/components/cart/add-to-cart";
 import { Button } from "@/components/ui/button";
 import { trackBeginCheckout } from "@/lib/analytics";
@@ -24,19 +24,34 @@ export function ProductActions({ product }: ProductActionsProps) {
     const stock = product.stock;
     const router = useRouter();
     const [shared, setShared] = useState(false);
+    const [quantity, setQuantity] = useState(1);
+    const maxQty = Math.max(1, stock);
+    const safeQuantity = Math.min(Math.max(1, quantity), maxQty);
+
+    useEffect(() => {
+        if (quantity > maxQty) setQuantity(maxQty);
+    }, [stock, maxQty, quantity]);
+
+    // Delivery: base fee for first 1000g, then +100 PKR per extra 1000g
+    const totalWeightGrams = (product.weight || 0) * safeQuantity;
+    const baseFee = product.deliveryFee || 0;
+    let surcharge = 0;
+    if (totalWeightGrams > 1000) {
+        surcharge = Math.ceil((totalWeightGrams - 1000) / 1000) * 100;
+    }
+    const deliveryFeeForQuantity = baseFee + surcharge;
 
     const handleBuyNow = () => {
-        // Track begin checkout event
+        const qty = safeQuantity;
         trackBeginCheckout([{
             id: product.id,
             title: product.title,
             price: product.price,
-            quantity: 1,
+            quantity: qty,
             image: product.image
-        }], product.price + (product.deliveryFee || 0));
+        }], product.price * qty + deliveryFeeForQuantity);
 
-        // Redirect to checkout with product
-        router.push(`/checkout?product=${product.id}&quantity=1`);
+        router.push(`/checkout?product=${product.id}&quantity=${qty}`);
     };
 
     const handleShare = async () => {
@@ -120,9 +135,34 @@ export function ProductActions({ product }: ProductActionsProps) {
         return () => observer.disconnect();
     }, [isHovered, displayStock, stock]);
 
+    function formatPrice(amount: number) {
+        return new Intl.NumberFormat("en-PK", { style: "currency", currency: "PKR", minimumFractionDigits: 0 }).format(amount);
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-6">
+                {/* Delivery - updates with quantity (first 1000g = base, +100 per extra 1000g) */}
+                <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100 space-y-3">
+                    <div className="flex items-center gap-2 text-xs font-bold text-zinc-600">
+                        <Truck className="h-4 w-4 text-primary" />
+                        <span>
+                            {deliveryFeeForQuantity === 0
+                                ? "Free Delivery"
+                                : `Delivery Charges: ${formatPrice(deliveryFeeForQuantity)}`}
+                            {surcharge > 0 && (
+                                <span className="text-zinc-400 font-normal ml-1">
+                                    (base {formatPrice(baseFee)} + {formatPrice(surcharge)} for weight)
+                                </span>
+                            )}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs font-bold text-zinc-600">
+                        <Shield className="h-3 w-3 text-primary" />
+                        <span>Safe & Secure Cash on Delivery</span>
+                    </div>
+                </div>
+
                 {/* Stock Status - Shopify style with FOMO */}
                 {stock > 0 ? (
                     <div id="stock-display" className="flex flex-col gap-1">
@@ -150,6 +190,32 @@ export function ProductActions({ product }: ProductActionsProps) {
 
                 {stock > 0 && (
                     <div className="flex flex-col gap-3">
+                        {/* Quantity selector */}
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">Quantity</span>
+                            <div className="flex items-center rounded-none border border-zinc-200 bg-zinc-50 overflow-hidden">
+                                <button
+                                    type="button"
+                                    aria-label="Decrease quantity"
+                                    className="h-11 w-11 flex items-center justify-center hover:bg-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-r border-zinc-200"
+                                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                                    disabled={safeQuantity <= 1}
+                                >
+                                    <Minus className="h-4 w-4" />
+                                </button>
+                                <span className="w-12 text-center font-black text-sm tabular-nums">{safeQuantity}</span>
+                                <button
+                                    type="button"
+                                    aria-label="Increase quantity"
+                                    className="h-11 w-11 flex items-center justify-center hover:bg-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-l border-zinc-200"
+                                    onClick={() => setQuantity((q) => Math.min(Math.max(1, stock), q + 1))}
+                                    disabled={safeQuantity >= Math.max(1, stock)}
+                                >
+                                    <Plus className="h-4 w-4" />
+                                </button>
+                            </div>
+                        </div>
+
                         <Button
                             onClick={handleBuyNow}
                             className="w-full h-12 rounded-none bg-black text-white font-bold shadow-lg hover:bg-zinc-900 transition-all active:scale-[0.98]"
@@ -161,6 +227,7 @@ export function ProductActions({ product }: ProductActionsProps) {
                         <AddToCart
                             product={product}
                             showQuantitySelector={false}
+                            quantityProp={safeQuantity}
                             className="w-full h-12 rounded-none border border-black bg-white text-black hover:bg-zinc-50 transition-all font-bold"
                             variant="outline"
                             hideIcon={true}

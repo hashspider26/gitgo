@@ -123,15 +123,16 @@ function CheckoutContent() {
     }, [productIdParam, quantityParam, cartItems]);
 
     const subtotal = checkoutItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-    const totalDeliveryFee = checkoutItems.reduce((totalFee, item) => {
-        const baseDeliveryFee = item.deliveryFee || 0;
-        if (baseDeliveryFee === 0) return totalFee;
-        const itemWeight = item.weight || 0;
-        const totalItemWeight = itemWeight * item.quantity;
-        let multiplier = 1;
-        if (totalItemWeight > 1000) multiplier = Math.ceil(totalItemWeight / 1000);
-        return totalFee + (baseDeliveryFee * multiplier);
-    }, 0);
+
+    // Delivery: base fee for first 1000g (max of item fees), then +100 PKR per extra 1000g total weight
+    const totalWeightGrams = checkoutItems.reduce((sum, item) => sum + (item.weight || 0) * item.quantity, 0);
+    const maxBaseDeliveryFee = checkoutItems.length === 0 ? 0 : Math.max(...checkoutItems.map(item => item.deliveryFee || 0));
+    let deliverySurcharge = 0;
+    if (totalWeightGrams > 1000) {
+        const extraGrams = totalWeightGrams - 1000;
+        deliverySurcharge = Math.ceil(extraGrams / 1000) * 100;
+    }
+    const totalDeliveryFee = maxBaseDeliveryFee + deliverySurcharge;
 
     // Calculate advance discount
     let totalDiscount = 0;

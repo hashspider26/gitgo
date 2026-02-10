@@ -14,7 +14,16 @@ function formatPrice(amount: number) {
 
 export default async function DashboardPage() {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const [totalProducts, totalOrders, orders, pendingOrders, unreadMessages, analyticsStats, sourceStats, uniqueVisitorsRows] = await Promise.all([
+    const [
+        totalProducts,
+        totalOrders,
+        orders,
+        pendingOrders,
+        unreadMessages,
+        analyticsStats,
+        sourceStatsRaw,
+        uniqueVisitorsRows
+    ] = await Promise.all([
         prisma.product.count(),
         prisma.order.count(),
         prisma.order.findMany({ select: { totalAmount: true } }),
@@ -27,7 +36,7 @@ export default async function DashboardPage() {
                 createdAt: { gte: thirtyDaysAgo }
             }
         }),
-        prisma.$queryRaw<Array<{ source: string | null; uniqueVisitors: number; totalViews: number }>>`
+        prisma.$queryRaw`
             SELECT source, COUNT(DISTINCT ip) as uniqueVisitors, COUNT(*) as totalViews
             FROM AnalyticsEvent
             WHERE type = 'PAGE_VIEW' AND createdAt >= ${thirtyDaysAgo}
@@ -35,8 +44,10 @@ export default async function DashboardPage() {
             ORDER BY totalViews DESC
             LIMIT 10
         `,
-        prisma.$queryRaw<[{ count: number }]>`SELECT COUNT(DISTINCT ip) as count FROM AnalyticsEvent WHERE createdAt >= ${thirtyDaysAgo}`
+        prisma.$queryRaw`SELECT COUNT(DISTINCT ip) as count FROM AnalyticsEvent WHERE createdAt >= ${thirtyDaysAgo}`
     ]);
+
+    const sourceStats = Array.isArray(sourceStatsRaw) ? sourceStatsRaw : [];
 
     const totalRevenue = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
 
@@ -49,7 +60,7 @@ export default async function DashboardPage() {
     const addedToCart = statsMap['ADD_TO_CART'] || 0;
     const sales = statsMap['PURCHASE'] || 0;
     const totalViews = statsMap['PAGE_VIEW'] || 0;
-    const uniqueVisitors = Number(uniqueVisitorsRows?.[0]?.count ?? 0);
+    const uniqueVisitors = Number((uniqueVisitorsRows as { count?: number }[])?.[0]?.count ?? 0);
 
     const stats = [
         {

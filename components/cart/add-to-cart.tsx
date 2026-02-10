@@ -21,6 +21,8 @@ interface AddToCartProps {
         weight?: number;
     };
     showQuantitySelector?: boolean;
+    /** When set, this quantity is used for add-to-cart instead of internal state (e.g. from parent quantity selector) */
+    quantityProp?: number;
     className?: string;
     variant?: "default" | "outline" | "ghost" | "buy-now";
     size?: "default" | "sm" | "lg" | "icon";
@@ -31,6 +33,7 @@ interface AddToCartProps {
 export function AddToCart({
     product,
     showQuantitySelector = false,
+    quantityProp,
     className,
     variant = "default",
     size = "default",
@@ -41,6 +44,7 @@ export function AddToCart({
     const [isAdding, setIsAdding] = useState(false);
     const addItem = useCartStore((state) => state.addItem);
     const router = useRouter();
+    const qty = quantityProp !== undefined ? quantityProp : quantity;
 
     const handleAction = async () => {
         setIsAdding(true);
@@ -50,7 +54,7 @@ export function AddToCart({
             price: product.price,
             image: product.image,
             slug: product.slug,
-            quantity: quantity,
+            quantity: qty,
             deliveryFee: product.deliveryFee,
             weight: product.weight
         });
@@ -60,7 +64,7 @@ export function AddToCart({
             id: product.id,
             title: product.title,
             price: product.price
-        }, quantity);
+        }, qty);
 
         if (isBuyNow) {
             router.push('/checkout');

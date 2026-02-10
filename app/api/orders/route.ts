@@ -15,16 +15,21 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "No items in order" }, { status: 400 });
         }
 
-        let totalAmount = 0;
+        let subtotal = 0;
         const orderItems: any[] = [];
+        let totalWeightGrams = 0;
+        let maxBaseDeliveryFee = 0;
 
         for (const item of items) {
             const product = await prisma.product.findUnique({ where: { id: item.productId } });
             if (!product) continue;
 
             const productTotal = product.price * item.quantity;
+            subtotal += productTotal;
+            const weight = (product as any).weight || 0;
             const deliveryFee = (product as any).deliveryFee || 0;
-            totalAmount += productTotal + deliveryFee;
+            totalWeightGrams += weight * item.quantity;
+            if (deliveryFee > maxBaseDeliveryFee) maxBaseDeliveryFee = deliveryFee;
 
             orderItems.push({
                 productId: product.id,
@@ -36,6 +41,15 @@ export async function POST(request: Request) {
         if (orderItems.length === 0) {
             return NextResponse.json({ error: "No valid products found" }, { status: 400 });
         }
+
+        // Delivery: base fee for first 1000g, then +100 PKR per extra 1000g
+        let deliverySurcharge = 0;
+        if (totalWeightGrams > 1000) {
+            const extraGrams = totalWeightGrams - 1000;
+            deliverySurcharge = Math.ceil(extraGrams / 1000) * 100;
+        }
+        const totalDeliveryFee = maxBaseDeliveryFee + deliverySurcharge;
+        const totalAmount = subtotal + totalDeliveryFee;
 
         const orderData = {
             customerName: firstName && lastName ? `${firstName} ${lastName}` : body.customerName || "Customer",

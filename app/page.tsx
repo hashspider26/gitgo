@@ -21,8 +21,8 @@ export default async function Home() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Hero Section */}
-      <section className="relative w-full bg-stone-100 py-20 px-4 md:py-32 dark:bg-zinc-900 overflow-hidden">
+      {/* Hero Section - full viewport height */}
+      <section className="relative w-full min-h-screen min-h-[100dvh] flex flex-col items-center justify-center bg-stone-100 py-20 px-4 md:py-32 dark:bg-zinc-900 overflow-hidden">
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <svg className="h-full w-full text-primary" viewBox="0 0 100 100" preserveAspectRatio="none">
             <path d="M0 100 C 20 0 50 0 100 100 Z" fill="currentColor" />
