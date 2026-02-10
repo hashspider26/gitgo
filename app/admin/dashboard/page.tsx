@@ -151,9 +151,10 @@ export default async function DashboardPage() {
 
                         <div>
                             <div className="overflow-x-auto">
-                                <table className="w-full min-w-[200px]">
+                                <table className="w-full min-w-[280px]">
                                     <thead>
                                         <tr className="text-left border-b border-zinc-200 dark:border-zinc-700">
+                                            <th className="pb-3 pr-4 text-[10px] font-black uppercase tracking-widest text-zinc-400">Source</th>
                                             <th className="pb-3 pr-4 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right">Unique Visitors</th>
                                             <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-zinc-400 text-right">Total Views</th>
                                         </tr>
@@ -161,6 +162,7 @@ export default async function DashboardPage() {
                                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                                         {(sourceStats || []).map((row: any, i: number) => (
                                             <tr key={row.source ?? i}>
+                                                <td className="py-3 pr-4 text-sm font-bold text-zinc-600 dark:text-zinc-400">{row.source || "Direct"}</td>
                                                 <td className="py-3 pr-4 text-sm font-black text-zinc-900 dark:text-white text-right">{Number(row.uniqueVisitors ?? row.unique_visitors ?? 0).toLocaleString()}</td>
                                                 <td className="py-3 text-sm font-black text-zinc-900 dark:text-white text-right">{Number(row.totalViews ?? row.total_views ?? 0).toLocaleString()}</td>
                                             </tr>
