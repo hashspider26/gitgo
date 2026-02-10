@@ -36,39 +36,15 @@ export async function POST(req: Request) {
         const buffer = Buffer.from(await file.arrayBuffer());
         const filename = Date.now() + "_" + file.name.replaceAll(" ", "_").replace(/[^a-zA-Z0-9._-]/g, "_");
 
-        let processedBuffer: Buffer;
+        // Use base64 upload (reliable on Vercel, no sharp native module needed)
+        const b64 = buffer.toString("base64");
+        const dataUri = `data:${file.type};base64,${b64}`;
 
-        // Process image with sharp to reduce size (skip on Vercel if sharp fails - native module issues)
-        try {
-            const sharp = (await import("sharp")).default;
-            processedBuffer = await sharp(buffer)
-                .resize(1200, 1200, {
-                    fit: "inside",
-                    withoutEnlargement: true,
-                })
-                .jpeg({ quality: 85, mozjpeg: true })
-                .toBuffer();
-        } catch (err) {
-            console.warn("Image processing failed, using original:", err);
-            processedBuffer = buffer;
-        }
-
-        // Upload to Cloudinary (options without transformation - image already processed)
-        const uploadResult = await new Promise<{ secure_url: string; public_id: string }>((resolve, reject) => {
-            const uploadStream = cloudinary.uploader.upload_stream(
-                {
-                    folder: "greenvalleyseeds",
-                    public_id: filename.replace(/\.[^/.]+$/, ""),
-                    resource_type: "image",
-                },
-                (error, result) => {
-                    if (error) reject(error);
-                    else if (result) resolve(result);
-                    else reject(new Error("No result from Cloudinary"));
-                }
-            );
-            uploadStream.on("error", reject);
-            uploadStream.end(processedBuffer);
+        const uploadResult = await cloudinary.uploader.upload(dataUri, {
+            folder: "greenvalleyseeds",
+            public_id: filename.replace(/\.[^/.]+$/, ""),
+            resource_type: "image",
+            overwrite: true,
         });
 
         return NextResponse.json({
