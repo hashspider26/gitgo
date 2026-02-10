@@ -37,13 +37,17 @@ export default function NewProductPage() {
                 body: formData,
             });
 
-            if (!res.ok) throw new Error("Upload failed");
+            const data = await res.json().catch(() => ({}));
 
-            const data = await res.json();
+            if (!res.ok) {
+                const msg = data?.details || data?.error || "Upload failed";
+                throw new Error(msg);
+            }
+
             setImages((prev) => [...prev, data.url]);
         } catch (error) {
             console.error(error);
-            alert("Failed to upload image");
+            alert(error instanceof Error ? error.message : "Failed to upload image");
         } finally {
             setUploading(false);
         }

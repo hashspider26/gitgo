@@ -29,6 +29,8 @@ const nextConfig = {
 	experimental: {
 		optimizeCss: false, // Disable CSS optimization to reduce memory
 	},
+	// Keep sharp external so correct native binary is used on Vercel/Linux
+	serverExternalPackages: ['sharp'],
 	// Reduce build output
 	output: 'standalone', // Creates a minimal production build
 	// Disable source maps in production to save memory

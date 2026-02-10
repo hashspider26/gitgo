@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import sharp from "sharp";
 import { cloudinary } from "@/lib/cloudinary";
+
+// Allow larger uploads (Vercel default is 4.5MB)
+export const maxDuration = 30;
 
 function isCloudinaryConfigured(): boolean {
     if (process.env.CLOUDINARY_URL) return true;
@@ -36,8 +38,9 @@ export async function POST(req: Request) {
 
         let processedBuffer: Buffer;
 
-        // Process image with sharp to reduce size
+        // Process image with sharp to reduce size (skip on Vercel if sharp fails - native module issues)
         try {
+            const sharp = (await import("sharp")).default;
             processedBuffer = await sharp(buffer)
                 .resize(1200, 1200, {
                     fit: "inside",
@@ -75,12 +78,14 @@ export async function POST(req: Request) {
 
     } catch (error) {
         console.error("Upload error:", error);
-        const message = error instanceof Error ? error.message : "Unknown error";
-        const isCloudinary = message.includes("Cloudinary") || (error as any)?.error?.message;
+        const err = error as any;
+        const message = err?.message
+            || err?.error?.message
+            || (typeof err === "string" ? err : "Unknown error");
         return NextResponse.json({
             error: "Failed to upload file.",
-            details: message,
-            hint: !isCloudinaryConfigured() ? "Set CLOUDINARY_URL on your host (e.g. Vercel env vars)." : undefined,
+            details: String(message),
+            hint: !isCloudinaryConfigured() ? "Set CLOUDINARY_URL on Vercel (Project Settings > Environment Variables)." : undefined,
         }, { status: 500 });
     }
 }
