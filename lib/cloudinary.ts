@@ -1,9 +1,8 @@
 import { v2 as cloudinary } from 'cloudinary';
 
-// Configure Cloudinary
+// Configure Cloudinary (do not throw so upload route can return 503 when missing)
 // Support both CLOUDINARY_URL format and individual env vars
 if (process.env.CLOUDINARY_URL) {
-  // Parse CLOUDINARY_URL format: cloudinary://api_key:api_secret@cloud_name
   const url = process.env.CLOUDINARY_URL;
   const match = url.match(/cloudinary:\/\/([^:]+):([^@]+)@(.+)/);
   if (match) {
@@ -14,7 +13,7 @@ if (process.env.CLOUDINARY_URL) {
       api_secret,
     });
   } else {
-    throw new Error('Invalid CLOUDINARY_URL format. Expected: cloudinary://api_key:api_secret@cloud_name');
+    console.warn('Invalid CLOUDINARY_URL format. Expected: cloudinary://api_key:api_secret@cloud_name');
   }
 } else if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
   cloudinary.config({
@@ -23,7 +22,7 @@ if (process.env.CLOUDINARY_URL) {
     api_secret: process.env.CLOUDINARY_API_SECRET,
   });
 } else {
-  console.warn('Cloudinary not configured. Set CLOUDINARY_URL or individual credentials.');
+  console.warn('Cloudinary not configured. Set CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME, API_KEY, API_SECRET.');
 }
 
 export { cloudinary };

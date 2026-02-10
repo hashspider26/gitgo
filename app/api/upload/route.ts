@@ -2,8 +2,22 @@ import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { cloudinary } from "@/lib/cloudinary";
 
+function isCloudinaryConfigured(): boolean {
+    if (process.env.CLOUDINARY_URL) return true;
+    if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) return true;
+    return false;
+}
+
 export async function POST(req: Request) {
     try {
+        if (!isCloudinaryConfigured()) {
+            console.error("Upload failed: Cloudinary not configured. Set CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME, API_KEY, API_SECRET.");
+            return NextResponse.json(
+                { error: "Image upload is not configured. Please set CLOUDINARY_URL (or Cloudinary env vars) on the server." },
+                { status: 503 }
+            );
+        }
+
         const formData = await req.formData();
         const file = formData.get("file") as File;
 
@@ -24,8 +38,6 @@ export async function POST(req: Request) {
 
         // Process image with sharp to reduce size
         try {
-            // Resize and compress image
-            // Max width: 1200px, Max height: 1200px, Quality: 85%
             processedBuffer = await sharp(buffer)
                 .resize(1200, 1200, {
                     fit: "inside",
@@ -33,42 +45,42 @@ export async function POST(req: Request) {
                 })
                 .jpeg({ quality: 85, mozjpeg: true })
                 .toBuffer();
-        } catch (error) {
-            // If sharp processing fails, use original buffer
-            console.warn("Image processing failed, using original:", error);
+        } catch (err) {
+            console.warn("Image processing failed, using original:", err);
             processedBuffer = buffer;
         }
 
-        // Upload to Cloudinary
-        const uploadResult = await new Promise((resolve, reject) => {
+        // Upload to Cloudinary (options without transformation - image already processed)
+        const uploadResult = await new Promise<{ secure_url: string; public_id: string }>((resolve, reject) => {
             const uploadStream = cloudinary.uploader.upload_stream(
                 {
                     folder: "greenvalleyseeds",
-                    public_id: filename.replace(/\.[^/.]+$/, ""), // Remove extension
+                    public_id: filename.replace(/\.[^/.]+$/, ""),
                     resource_type: "image",
-                    transformation: [
-                        { quality: "auto" },
-                        { fetch_format: "auto" }
-                    ]
                 },
                 (error, result) => {
                     if (error) reject(error);
-                    else resolve(result);
+                    else if (result) resolve(result);
+                    else reject(new Error("No result from Cloudinary"));
                 }
             );
+            uploadStream.on("error", reject);
             uploadStream.end(processedBuffer);
-        }) as any;
+        });
 
-        return NextResponse.json({ 
+        return NextResponse.json({
             url: uploadResult.secure_url,
-            public_id: uploadResult.public_id
+            public_id: uploadResult.public_id,
         }, { status: 201 });
 
     } catch (error) {
         console.error("Upload error:", error);
-        return NextResponse.json({ 
+        const message = error instanceof Error ? error.message : "Unknown error";
+        const isCloudinary = message.includes("Cloudinary") || (error as any)?.error?.message;
+        return NextResponse.json({
             error: "Failed to upload file.",
-            details: error instanceof Error ? error.message : "Unknown error"
+            details: message,
+            hint: !isCloudinaryConfigured() ? "Set CLOUDINARY_URL on your host (e.g. Vercel env vars)." : undefined,
         }, { status: 500 });
     }
 }

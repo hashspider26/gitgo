@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { Search, Sprout } from "lucide-react";
+import { Gift, Sprout } from "lucide-react";
 import { ProductCard } from "@/components/product/product-card";
 import { Suspense } from "react";
 import { ProductGridSkeleton } from "@/components/shared/loading-skeletons";
@@ -59,6 +59,16 @@ export default async function ShopPage({
                 <div className="mx-auto max-w-6xl">
                     <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">Shop</h1>
                     <p className="text-zinc-500 mt-2">Browse our collection of seeds and tools.</p>
+                </div>
+            </div>
+
+            {/* Offer Banner */}
+            <div className="mx-auto max-w-6xl px-4 mt-6">
+                <div className="flex items-center gap-3 rounded-xl bg-primary/10 border border-primary/20 px-4 py-3">
+                    <Gift className="h-6 w-6 text-primary flex-shrink-0" />
+                    <p className="text-sm font-bold text-zinc-800 dark:text-zinc-200">
+                        Receive a surprise gift on orders over {formatPrice(1000)}!
+                    </p>
                 </div>
             </div>
 
