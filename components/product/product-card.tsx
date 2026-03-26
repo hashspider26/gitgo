@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Sprout } from "lucide-react";
 import { AddToCart } from "@/components/cart/add-to-cart";
+import { getRandomizedUrl } from "@/lib/cloudinary";
 
 interface ProductCardProps {
     product: {
@@ -13,6 +14,8 @@ interface ProductCardProps {
         deliveryFee?: number;
         weight?: number;
         salePrice?: number;
+        advanceDiscount?: number;
+        advanceDiscountType?: string;
     };
 }
 
@@ -28,11 +31,14 @@ export function ProductCard({ product }: ProductCardProps) {
     let imageUrl = null;
     try {
         const images = product.images ? JSON.parse(product.images) : [];
-        if (Array.isArray(images) && images.length > 0) imageUrl = images[0];
+        if (Array.isArray(images) && images.length > 0) {
+            imageUrl = getRandomizedUrl(images[0]);
+        }
     } catch (e) { }
 
-    const discountPercentage = product.salePrice && product.salePrice > product.price 
-        ? Math.round(((product.salePrice - product.price) / product.salePrice) * 100) 
+    const isOnSale = product.salePrice && product.salePrice > product.price;
+    const discountPercentage = isOnSale
+        ? Math.round(((product.salePrice! - product.price) / product.salePrice!) * 100)
         : 0;
 
     return (
@@ -70,10 +76,15 @@ export function ProductCard({ product }: ProductCardProps) {
                 </Link>
 
                 <div className="flex flex-col gap-2 mt-auto pt-2">
-                    <div className="flex items-baseline gap-2">
+                    <div className="flex flex-wrap items-baseline gap-2">
                         <span className="font-black text-sm text-zinc-900">
                             {formatPrice(product.price)}
                         </span>
+                        {isOnSale && (
+                            <span className="text-[10px] text-zinc-400 line-through decoration-1">
+                                {formatPrice(product.salePrice!)}
+                            </span>
+                        )}
                     </div>
 
                     <AddToCart
@@ -84,7 +95,9 @@ export function ProductCard({ product }: ProductCardProps) {
                             image: imageUrl || undefined,
                             slug: product.slug,
                             deliveryFee: product.deliveryFee,
-                            weight: product.weight
+                            weight: product.weight,
+                            advanceDiscount: product.advanceDiscount,
+                            advanceDiscountType: product.advanceDiscountType
                         }}
                         isBuyNow
                         variant="buy-now"
@@ -96,3 +109,4 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
     );
 }
+

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus, Edit, Sprout } from "lucide-react";
 import { DeleteProductButton } from "@/components/admin/delete-product-button";
 import { prisma } from "@/lib/prisma";
+import { StockToggleButton } from "@/components/admin/stock-toggle-button";
 
 export const revalidate = 0;
 
@@ -62,6 +63,7 @@ export default async function ProductsDashboard() {
                                         <td className="hidden sm:table-cell px-6 py-4 text-zinc-600 dark:text-zinc-400">{product.stock}</td>
                                         <td className="px-3 py-3 sm:px-6 sm:py-4 text-right">
                                             <div className="flex items-center justify-end gap-1">
+                                                <StockToggleButton productId={product.id} currentStock={product.stock} />
                                                 <Link
                                                     href={`/admin/dashboard/products/edit/${product.id}`}
                                                     className="p-2 hover:bg-zinc-100 rounded text-zinc-500 hover:text-primary dark:hover:bg-zinc-800 transition-colors"

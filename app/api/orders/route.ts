@@ -49,7 +49,8 @@ export async function POST(request: Request) {
             deliverySurcharge = Math.ceil(extraGrams / 1000) * 100;
         }
         const totalDeliveryFee = maxBaseDeliveryFee + deliverySurcharge;
-        const totalAmount = subtotal + totalDeliveryFee;
+        const discountAmount = body.discountAmount || 0;
+        const totalAmount = subtotal + totalDeliveryFee - discountAmount;
 
         const orderData = {
             customerName: firstName && lastName ? `${firstName} ${lastName}` : body.customerName || "Customer",
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
             address,
             city,
             totalAmount,
-            discountAmount: body.discountAmount || 0,
+            discountAmount,
             paymentMethod: body.paymentMethod || "COD",
             status: "PENDING" as const,
             userId: session?.user?.id || null,

@@ -8,6 +8,7 @@ import { ProductActions } from "@/components/product/product-actions";
 import { ProductCard } from "@/components/product/product-card";
 import { LiveViewerCount } from "@/components/product/live-viewer-count";
 import { TrackViewItem } from "@/components/analytics/track-view-item";
+import { getRandomizedUrl } from "@/lib/cloudinary";
 
 // Force dynamic rendering to ensure fresh data and valid metadata generation on request
 export const dynamic = 'force-dynamic';
@@ -89,6 +90,8 @@ export default async function ProductPage({ params }: Props) {
 
     if (images.length === 0) {
         images = ["https://placehold.co/600x600/e2e8f0/1e293b?text=" + encodeURIComponent(p.title)];
+    } else {
+        images = images.map(url => getRandomizedUrl(url) || url);
     }
 
     return (

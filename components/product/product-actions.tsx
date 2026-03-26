@@ -17,6 +17,8 @@ interface ProductActionsProps {
         stock: number;
         weight?: number;
         deliveryFee?: number;
+        advanceDiscount?: number;
+        advanceDiscountType?: string;
     };
 }
 
@@ -223,7 +225,7 @@ export function ProductActions({ product }: ProductActionsProps) {
                             <ShoppingCart className="mr-2 h-5 w-5" />
                             Buy Now
                         </Button>
-                        
+
                         <AddToCart
                             product={product}
                             showQuantitySelector={false}

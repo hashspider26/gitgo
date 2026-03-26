@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { ArrowLeft, Package, Sprout } from "lucide-react";
 import { OrderStatusManager } from "@/components/admin/order-status-manager";
 import { DeleteOrderButton } from "@/components/admin/delete-order-button";
+import { LocalTime } from "@/components/shared/local-time";
 
 export const revalidate = 0;
 
@@ -46,18 +47,17 @@ export default async function OrdersPage() {
                                 </div>
                                 <div className="flex flex-col items-end gap-3">
                                     <div className="flex items-center gap-2">
-                                        <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-md ${
-                                            (order as any).paymentMethod === "ADVANCE" 
-                                                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" 
-                                                : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
-                                        }`}>
+                                        <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-md ${(order as any).paymentMethod === "ADVANCE"
+                                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                            : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                                            }`}>
                                             {(order as any).paymentMethod || "COD"}
                                         </span>
                                         <OrderStatusManager orderId={order.id} currentStatus={order.status} />
                                         <DeleteOrderButton orderId={order.id} />
                                     </div>
                                     <p className="text-xs text-zinc-400">
-                                        Ordered: {new Date(order.createdAt).toLocaleDateString()} at {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        Ordered: <LocalTime date={order.createdAt} />
                                     </p>
                                 </div>
                             </div>

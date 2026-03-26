@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { cloudinary } from "@/lib/cloudinary";
+import { cloudinary, multiUpload } from "@/lib/cloudinary";
 
 // Allow larger uploads (Vercel default is 4.5MB)
 export const maxDuration = 30;
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
         const b64 = buffer.toString("base64");
         const dataUri = `data:${file.type};base64,${b64}`;
 
-        const uploadResult = await cloudinary.uploader.upload(dataUri, {
+        const uploadResult = await multiUpload(dataUri, {
             folder: "greenvalleyseeds",
             public_id: filename.replace(/\.[^/.]+$/, ""),
             resource_type: "image",
