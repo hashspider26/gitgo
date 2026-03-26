@@ -162,6 +162,26 @@ export function getRandomizedUrl(url: string | null): string | null {
     }
 }
 
+/**
+ * Deletes an image from all configured Cloudinary accounts simultaneously.
+ */
+export async function multiDelete(publicId: string) {
+    if (configs.length === 0) return;
+
+    const deletePromises = configs.map(async (config) => {
+        try {
+            return await cloudinary.uploader.destroy(publicId, {
+                ...config,
+            } as any);
+        } catch (error) {
+            console.error(`Delete failed for account ${config.cloud_name}:`, error);
+            return null;
+        }
+    });
+
+    return await Promise.all(deletePromises);
+}
+
 // Helper function to extract public_id from Cloudinary URL
 export function extractPublicId(url: string): string | null {
     try {
