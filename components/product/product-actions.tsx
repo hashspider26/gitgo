@@ -220,10 +220,17 @@ export function ProductActions({ product }: ProductActionsProps) {
 
                         <Button
                             onClick={handleBuyNow}
+                            disabled={stock <= 0}
                             className="w-full h-12 rounded-none bg-black text-white font-bold shadow-lg hover:bg-zinc-900 transition-all active:scale-[0.98]"
                         >
-                            <ShoppingCart className="mr-2 h-5 w-5" />
-                            Buy Now
+                            {stock <= 0 ? (
+                                "Out of Stock"
+                            ) : (
+                                <>
+                                    <ShoppingCart className="mr-2 h-5 w-5" />
+                                    Buy Now
+                                </>
+                            )}
                         </Button>
 
                         <AddToCart
@@ -233,6 +240,7 @@ export function ProductActions({ product }: ProductActionsProps) {
                             className="w-full h-12 rounded-none border border-black bg-white text-black hover:bg-zinc-50 transition-all font-bold"
                             variant="outline"
                             hideIcon={true}
+                            stock={product.stock}
                         />
 
                         <div className="flex justify-center mt-2">

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { sendDiscordContactNotification } from "@/lib/discord";
 
 
 // POST - Submit contact form
@@ -29,6 +30,11 @@ export async function POST(request: NextRequest) {
                 status: "UNREAD"
             }
         });
+        
+        // Send Discord notification (fire and forget)
+        sendDiscordContactNotification(contactMessage).catch(err => 
+            console.error("Delayed Discord contact notification failed:", err)
+        );
 
         return NextResponse.json(
             { message: "Message sent successfully", id: contactMessage.id },

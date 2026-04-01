@@ -103,7 +103,7 @@ export default async function OrdersPage() {
                                     </div>
                                     <div className="flex justify-between items-center text-xs text-zinc-500">
                                         <span>Delivery Fee</span>
-                                        <span>PKR {order.items.reduce((acc, item) => acc + ((item.product as any).deliveryFee || 0), 0)}</span>
+                                        <span>PKR {order.totalAmount - order.items.reduce((acc, item) => acc + (item.price * item.quantity), 0) + (order.discountAmount || 0)}</span>
                                     </div>
                                     {(order as any).discountAmount > 0 && (
                                         <div className="flex justify-between items-center text-xs text-green-600 font-bold">

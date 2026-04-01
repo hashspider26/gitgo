@@ -145,7 +145,17 @@ export const trackBeginCheckout = (items: any[], total: number) => {
     });
 };
 
+// Guard to prevent double tracking of the same order in the same session
+const trackedOrders = new Set<string>();
+
 export const trackPurchase = (orderId: string, items: any[], total: number) => {
+    // Prevent double tracking
+    if (trackedOrders.has(orderId)) {
+        console.log(`⚠️ Order ${orderId} already tracked. Skipping duplicate.`);
+        return;
+    }
+    trackedOrders.add(orderId);
+
     // Google Analytics
     console.log(`📊 GA Event: purchase`, "Order:", orderId, "Total:", total);
     sendGAEvent('event', 'purchase', {
@@ -160,32 +170,28 @@ export const trackPurchase = (orderId: string, items: any[], total: number) => {
         }))
     });
 
-    // Meta Pixel - Purchase event (Item Purchased)
-    if (typeof window !== "undefined" && typeof window.fbq !== "undefined") {
+    // Meta Pixel - Purchase event (with Deduplication ID)
+    if (typeof window !== "undefined") {
         try {
-            window.fbq("track", "Purchase", {
-                content_ids: items.map(item => item.id || item.productId),
-                content_name: items.map(item => item.title || "Product").join(", "),
-                content_type: "product",
-                value: total,
-                currency: "PKR",
-                num_items: items.reduce((acc, item) => acc + item.quantity, 0),
-            });
-            console.log("📊 Meta Pixel: Purchase tracked", "Order:", orderId, "Total:", total);
+            // Standard fbq function (handles queueing automatically)
+            const fb = (window as any).fbq || (window as any)._fbq;
+            
+            if (typeof fb === "function") {
+                fb("track", "Purchase", {
+                    content_ids: items.map(item => item.id || item.productId),
+                    content_name: items.map(item => item.title || "Product").join(", "),
+                    content_type: "product",
+                    value: total,
+                    currency: "PKR",
+                    num_items: items.reduce((acc, item) => acc + item.quantity, 0),
+                }, { eventID: orderId }); // eventID is CRITICAL for deduplication
+
+                console.log("📊 Meta Pixel: Purchase tracked (Deduplicated)", "Order:", orderId, "Total:", total);
+            } else {
+                console.warn("Meta Pixel (fbq) not found on window");
+            }
         } catch (error) {
             console.error("Meta Pixel Purchase error:", error);
-        }
-    } else {
-        // Queue event if pixel not loaded yet
-        if (typeof window !== "undefined" && typeof (window as any)._fbq !== "undefined") {
-            (window as any)._fbq("track", "Purchase", {
-                content_ids: items.map(item => item.id || item.productId),
-                content_name: items.map(item => item.title || "Product").join(", "),
-                content_type: "product",
-                value: total,
-                currency: "PKR",
-                num_items: items.reduce((acc, item) => acc + item.quantity, 0),
-            });
         }
     }
 

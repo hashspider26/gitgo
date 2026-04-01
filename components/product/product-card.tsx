@@ -16,6 +16,7 @@ interface ProductCardProps {
         salePrice?: number;
         advanceDiscount?: number;
         advanceDiscountType?: string;
+        stock?: number;
     };
 }
 
@@ -41,69 +42,96 @@ export function ProductCard({ product }: ProductCardProps) {
         ? Math.round(((product.salePrice! - product.price) / product.salePrice!) * 100)
         : 0;
 
+    const isOutOfStock = (product.stock ?? 0) <= 0;
+
     return (
-        <div className="group flex h-full flex-col bg-white overflow-hidden transition-all duration-300">
+        <div className={`group flex h-full flex-col bg-white overflow-hidden transition-all duration-300 ${isOutOfStock ? 'opacity-75' : ''}`}>
             {/* Image & Badge */}
-            <Link href={`/product/${product.slug}`} className="block aspect-[4/5] w-full bg-zinc-50 relative overflow-hidden rounded-2xl border border-zinc-100">
-                {imageUrl ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                        src={imageUrl}
-                        alt={product.title}
-                        className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-700"
-                    />
-                ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-zinc-300">
-                        <Sprout className="h-8 w-8 opacity-50" />
+            <div className="relative aspect-[4/5] w-full bg-zinc-50 overflow-hidden rounded-2xl border border-zinc-100 group/image">
+                <Link href={`/product/${product.slug}`} className="block h-full w-full">
+                    {imageUrl ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                            src={imageUrl}
+                            alt={product.title}
+                            className={`object-cover w-full h-full transition-transform duration-700 ${!isOutOfStock ? 'group-hover:scale-105' : 'grayscale-[0.5]'}`}
+                        />
+                    ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-zinc-300">
+                            <Sprout className="h-8 w-8 opacity-50" />
+                        </div>
+                    )}
+                </Link>
+
+                <div className="absolute top-3 left-3 flex flex-col gap-2">
+                    {isOutOfStock ? (
+                        <div className="bg-zinc-900/80 text-white text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg backdrop-blur-sm shadow-lg">
+                            Out of Stock
+                        </div>
+                    ) : discountPercentage > 0 && (
+                        <div className="bg-red-600 text-white text-[10px] font-black uppercase tracking-tighter px-2 py-1 rounded-lg shadow-lg">
+                            {discountPercentage}% OFF
+                        </div>
+                    )}
+                </div>
+
+                {/* Floating Add to Cart Button */}
+                {!isOutOfStock && (
+                    <div className="absolute bottom-3 right-3 z-10 opacity-100 translate-y-0 lg:opacity-0 lg:translate-y-4 lg:group-hover/image:translate-y-0 lg:group-hover/image:opacity-100 transition-all duration-300">
+                        <AddToCart
+                            product={{
+                                id: product.id,
+                                title: product.title,
+                                price: product.price,
+                                image: imageUrl || undefined,
+                                slug: product.slug,
+                                deliveryFee: product.deliveryFee,
+                                weight: product.weight,
+                                advanceDiscount: product.advanceDiscount,
+                                advanceDiscountType: product.advanceDiscountType
+                            }}
+                            variant="default"
+                            size="icon"
+                            className="h-10 w-10 rounded-full bg-white text-zinc-900 shadow-xl border border-zinc-200 hover:bg-zinc-900 hover:text-white transition-colors flex items-center justify-center"
+                            hideIcon={false}
+                            stock={product.stock}
+                        />
+                        <div className="absolute -top-1 -right-1 bg-primary text-white h-4 w-4 rounded-full flex items-center justify-center pointer-events-none border border-white">
+                            <span className="text-[10px] font-black">+</span>
+                        </div>
                     </div>
                 )}
 
-                {discountPercentage > 0 && (
-                    <div className="absolute top-3 right-3 bg-red-600 text-white text-[10px] font-black uppercase tracking-tighter px-2 py-1 rounded-lg shadow-lg">
-                        {discountPercentage}% OFF
+                {isOutOfStock && (
+                    <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px] pointer-events-none flex items-center justify-center">
+                        <span className="bg-zinc-950 text-white text-[10px] font-black uppercase tracking-[0.2em] px-4 py-2 rounded-full shadow-2xl">
+                            Sold Out
+                        </span>
                     </div>
                 )}
 
                 <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black-[0.02]" />
-            </Link>
+            </div>
 
             {/* Content simplified and high contrast */}
             <div className="pt-4 flex flex-col gap-1 flex-1 px-1">
                 <Link href={`/product/${product.slug}`}>
-                    <h3 className="font-bold text-xs text-zinc-900 group-hover:text-primary transition-colors line-clamp-2 leading-snug lowercase first-letter:uppercase">
+                    <h3 className={`font-bold text-xs text-zinc-900 transition-colors line-clamp-2 leading-snug lowercase first-letter:uppercase ${!isOutOfStock ? 'group-hover:text-primary' : 'text-zinc-500'}`}>
                         {product.title}
                     </h3>
                 </Link>
 
-                <div className="flex flex-col gap-2 mt-auto pt-2">
+                <div className="flex flex-col gap-2 mt-auto pt-2 pb-2">
                     <div className="flex flex-wrap items-baseline gap-2">
-                        <span className="font-black text-sm text-zinc-900">
+                        <span className={`font-black text-sm ${isOutOfStock ? 'text-zinc-400' : 'text-zinc-900'}`}>
                             {formatPrice(product.price)}
                         </span>
-                        {isOnSale && (
+                        {isOnSale && !isOutOfStock && (
                             <span className="text-[10px] text-zinc-400 line-through decoration-1">
                                 {formatPrice(product.salePrice!)}
                             </span>
                         )}
                     </div>
-
-                    <AddToCart
-                        product={{
-                            id: product.id,
-                            title: product.title,
-                            price: product.price,
-                            image: imageUrl || undefined,
-                            slug: product.slug,
-                            deliveryFee: product.deliveryFee,
-                            weight: product.weight,
-                            advanceDiscount: product.advanceDiscount,
-                            advanceDiscountType: product.advanceDiscountType
-                        }}
-                        isBuyNow
-                        variant="buy-now"
-                        size="default"
-                        className="w-full h-9 rounded-xl bg-zinc-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all lg:opacity-0 lg:group-hover:opacity-100 lg:translate-y-2 lg:group-hover:translate-y-0"
-                    />
                 </div>
             </div>
         </div>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { sendDiscordOrderNotification } from "@/lib/discord";
 
 export async function POST(request: Request) {
     try {
@@ -113,6 +114,17 @@ export async function POST(request: Request) {
             } catch (profileError) {
                 console.warn("User profile auto-save failed (likely client out of sync):", profileError);
             }
+        }
+
+        // Send Discord notification (fire and forget)
+        const fullOrder = await prisma.order.findUnique({
+            where: { id: order.id },
+            include: { items: { include: { product: true } } }
+        });
+        if (fullOrder) {
+            sendDiscordOrderNotification(fullOrder).catch(err => 
+                console.error("Delayed Discord notification failed:", err)
+            );
         }
 
         return NextResponse.json(order);
