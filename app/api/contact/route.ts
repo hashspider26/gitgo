@@ -30,9 +30,9 @@ export async function POST(request: NextRequest) {
                 status: "UNREAD"
             }
         });
-        
+
         // Send Discord notification (fire and forget)
-        sendDiscordContactNotification(contactMessage).catch(err => 
+        sendDiscordContactNotification(contactMessage).catch(err =>
             console.error("Delayed Discord contact notification failed:", err)
         );
 

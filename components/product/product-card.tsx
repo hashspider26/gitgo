@@ -75,33 +75,6 @@ export function ProductCard({ product }: ProductCardProps) {
                     )}
                 </div>
 
-                {/* Floating Add to Cart Button */}
-                {!isOutOfStock && (
-                    <div className="absolute bottom-3 right-3 z-10 opacity-100 translate-y-0 lg:opacity-0 lg:translate-y-4 lg:group-hover/image:translate-y-0 lg:group-hover/image:opacity-100 transition-all duration-300">
-                        <AddToCart
-                            product={{
-                                id: product.id,
-                                title: product.title,
-                                price: product.price,
-                                image: imageUrl || undefined,
-                                slug: product.slug,
-                                deliveryFee: product.deliveryFee,
-                                weight: product.weight,
-                                advanceDiscount: product.advanceDiscount,
-                                advanceDiscountType: product.advanceDiscountType
-                            }}
-                            variant="default"
-                            size="icon"
-                            className="h-10 w-10 rounded-full bg-white text-zinc-900 shadow-xl border border-zinc-200 hover:bg-zinc-900 hover:text-white transition-colors flex items-center justify-center"
-                            hideIcon={false}
-                            stock={product.stock}
-                        />
-                        <div className="absolute -top-1 -right-1 bg-primary text-white h-4 w-4 rounded-full flex items-center justify-center pointer-events-none border border-white">
-                            <span className="text-[10px] font-black">+</span>
-                        </div>
-                    </div>
-                )}
-
                 {isOutOfStock && (
                     <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px] pointer-events-none flex items-center justify-center">
                         <span className="bg-zinc-950 text-white text-[10px] font-black uppercase tracking-[0.2em] px-4 py-2 rounded-full shadow-2xl">
@@ -110,7 +83,7 @@ export function ProductCard({ product }: ProductCardProps) {
                     </div>
                 )}
 
-                <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black-[0.02]" />
+                <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black-[0.01] pointer-events-none" />
             </div>
 
             {/* Content simplified and high contrast */}
@@ -132,6 +105,28 @@ export function ProductCard({ product }: ProductCardProps) {
                             </span>
                         )}
                     </div>
+
+                    {!isOutOfStock && (
+                        <div className="mt-4">
+                            <AddToCart
+                                product={{
+                                    id: product.id,
+                                    title: product.title,
+                                    price: product.price,
+                                    image: imageUrl || undefined,
+                                    slug: product.slug,
+                                    deliveryFee: product.deliveryFee,
+                                    weight: product.weight,
+                                    advanceDiscount: product.advanceDiscount,
+                                    advanceDiscountType: product.advanceDiscountType
+                                }}
+                                isBuyNow={true}
+                                variant="default"
+                                className="w-full h-10 rounded-xl bg-zinc-950 text-white font-black hover:bg-zinc-900 transition-all text-[11px] uppercase tracking-widest shadow-lg shadow-black/10 hover:scale-[1.01] active:scale-95"
+                                stock={product.stock}
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

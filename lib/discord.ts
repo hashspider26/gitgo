@@ -4,7 +4,7 @@
  */
 export async function sendDiscordOrderNotification(order: any) {
     const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
-    
+
     if (!webhookUrl) {
         console.warn("⚠️ DISCORD_WEBHOOK_URL is not set. Order notification skipped.");
         return;
@@ -19,7 +19,7 @@ export async function sendDiscordOrderNotification(order: any) {
             currency: 'PKR',
             minimumFractionDigits: 0
         }).format(order.totalAmount || 0);
-        
+
         const method = order.paymentMethod === "ADVANCE" ? "🏦 Advance Payment" : "💵 Cash on Delivery";
         const address = `${order.address}, ${order.city}`;
 
@@ -99,7 +99,7 @@ export async function sendDiscordOrderNotification(order: any) {
 export async function sendDiscordContactNotification(contact: any) {
     console.log("🌐 Attempting to send Discord Contact Notification...");
     const webhookUrl = process.env.DISCORD_MESSAGES_WEBHOOK_URL;
-    
+
     if (!webhookUrl) {
         console.error("❌ DISCORD_MESSAGES_WEBHOOK_URL is NOT defined in environment variables.");
         return;

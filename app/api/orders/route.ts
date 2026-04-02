@@ -122,7 +122,7 @@ export async function POST(request: Request) {
             include: { items: { include: { product: true } } }
         });
         if (fullOrder) {
-            sendDiscordOrderNotification(fullOrder).catch(err => 
+            sendDiscordOrderNotification(fullOrder).catch(err =>
                 console.error("Delayed Discord notification failed:", err)
             );
         }
