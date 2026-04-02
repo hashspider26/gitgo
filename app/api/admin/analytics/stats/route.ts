@@ -48,11 +48,11 @@ export async function GET() {
             WHERE type = 'VIEW_PRODUCT' AND productId IS NOT NULL AND createdAt >= ${thirtyDaysAgoStr}
             GROUP BY productId
             ORDER BY count DESC
-            LIMIT 50
+            LIMIT 100
         `;
 
         const realSales: any[] = await prisma.$queryRaw`
-            SELECT oi.productId, SUM(oi.quantity) as soldQuantity
+            SELECT oi.productId, SUM(oi.quantity) as soldQuantity, COUNT(DISTINCT oi.orderId) as orderCount
             FROM OrderItem oi
             JOIN "Order" o ON oi.orderId = o.id
             WHERE o.status != 'CANCELLED' AND o.createdAt >= ${thirtyDaysAgoStr}
@@ -60,21 +60,34 @@ export async function GET() {
         `;
 
         // Get product titles
-        const productIds = topProducts.map(p => p.productId);
+        const productIds = Array.from(new Set([
+            ...topProducts.map(p => p.productId),
+            ...realSales.map(rs => rs.productId)
+        ]));
+
         const products = await prisma.product.findMany({
             where: { id: { in: productIds } },
             select: { id: true, title: true }
         });
 
-        const topProductsWithTitles = topProducts.map(tp => {
-            const product = products.find(p => p.id === tp.productId);
-            const salesRecord = realSales.find(rs => rs.productId === tp.productId);
+        const topProductsWithTitles = productIds.map(pid => {
+            const product = products.find(p => p.id === pid);
+            const viewRecord = topProducts.find(tp => tp.productId === pid);
+            const salesRecord = realSales.find(rs => rs.productId === pid);
+            
+            const views = viewRecord ? Number(viewRecord.count) : 0;
+            const orders = salesRecord ? Number(salesRecord.orderCount) : 0;
+            const sales = salesRecord ? Number(salesRecord.soldQuantity) : 0;
+            const ratio = views > 0 ? (orders / views) * 100 : 0;
+
             return {
                 title: product?.title || 'Unknown Product',
-                views: Number(tp.count),
-                sales: salesRecord ? Number(salesRecord.soldQuantity) : 0
+                views,
+                orders,
+                sales,
+                ratio: Number(ratio.toFixed(1))
             };
-        });
+        }).sort((a, b) => b.ratio - a.ratio);
 
         // 5. Recent Events - ADD_TO_CART, PURCHASE, and VIEW_PRODUCT events, Limit 100 (Include IP)
         const recentEvents: any[] = await prisma.$queryRaw`

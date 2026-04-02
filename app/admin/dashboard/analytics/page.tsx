@@ -140,21 +140,31 @@ export default function AnalyticsPage() {
                         </h3>
                         <div className="space-y-3 overflow-y-auto pr-2 flex-1 scrollbar-none">
                             {data?.topProducts?.map((p: any) => (
-                                <div key={p.title} className="flex flex-col gap-1 pb-2 border-b border-zinc-50  last:border-0">
-                                    <span className="font-bold text-[9px] md:text-[11px] text-zinc-700  line-clamp-1">{p.title}</span>
-                                    <div className="flex items-center gap-2 md:gap-4 text-[8px] md:text-[10px] font-black tracking-tighter">
-                                        <span className="text-zinc-400 flex items-center gap-1">
-                                            <Eye className="h-2.5 w-2.5 md:h-3 md:w-3" />
-                                            <span className="text-zinc-900 ">{p.views || 0}</span>
-                                            <span className="uppercase opacity-70 hidden md:inline">Views</span>
-                                        </span>
-                                        <span className="text-green-500 flex items-center gap-1">
-                                            <Package className="h-2.5 w-2.5 md:h-3 md:w-3" />
-                                            <span className="text-green-600 ">{p.sales || 0}</span>
-                                            <span className="uppercase opacity-70 hidden md:inline">Sales</span>
-                                        </span>
+                                    <div className="flex flex-col gap-1 pb-3 border-b border-zinc-100 last:border-0 hover:bg-zinc-50 transition-colors rounded-lg p-2 -mx-2">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="font-bold text-[10px] md:text-sm text-zinc-800 line-clamp-1">{p.title}</span>
+                                            <span className="text-[10px] md:text-sm font-black text-primary bg-primary/5 px-2 py-0.5 rounded-full">
+                                                {p.ratio}% <span className="text-[7px] md:text-[9px] opacity-70 uppercase tracking-tighter">conv.</span>
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3 md:gap-6 text-[8px] md:text-[11px] font-black tracking-tighter">
+                                            <span className="text-zinc-400 flex items-center gap-1.5">
+                                                <Eye className="h-3 w-3 md:h-4 md:w-4" />
+                                                <span className="text-zinc-900 ">{p.views || 0}</span>
+                                                <span className="uppercase opacity-60 hidden md:inline">Views</span>
+                                            </span>
+                                            <span className="text-green-500 flex items-center gap-1.5">
+                                                <ShoppingCart className="h-3 w-3 md:h-4 md:w-4" />
+                                                <span className="text-green-600 ">{p.orders || 0}</span>
+                                                <span className="uppercase opacity-60 hidden md:inline">Orders</span>
+                                            </span>
+                                            <span className="text-blue-500 flex items-center gap-1.5">
+                                                <Package className="h-3 w-3 md:h-4 md:w-4" />
+                                                <span className="text-blue-600 ">{p.sales || 0}</span>
+                                                <span className="uppercase opacity-60 hidden md:inline">Units</span>
+                                            </span>
+                                        </div>
                                     </div>
-                                </div>
                             ))}
                         </div>
                     </div>

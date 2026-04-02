@@ -23,14 +23,41 @@ export default async function ShopPage({
 }) {
     const category = searchParams.category ? decodeURIComponent(searchParams.category) : undefined;
 
-    const [allProducts, categoryDocs] = await Promise.all([
-        prisma.product.findMany({
-            orderBy: { createdAt: 'desc' },
-        }),
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString();
+
+    const [allProductsRaw, categoryDocs, viewStats, orderStats] = await Promise.all([
+        prisma.product.findMany(),
         prisma.category.findMany({
             orderBy: { name: 'asc' }
-        })
+        }),
+        prisma.$queryRaw`
+            SELECT productId, COUNT(*) as count 
+            FROM AnalyticsEvent 
+            WHERE type = 'VIEW_PRODUCT' AND productId IS NOT NULL AND createdAt >= ${thirtyDaysAgoStr}
+            GROUP BY productId
+        `,
+        prisma.$queryRaw`
+            SELECT oi.productId, COUNT(DISTINCT oi.orderId) as orderCount
+            FROM OrderItem oi
+            JOIN "Order" o ON oi.orderId = o.id
+            WHERE o.status != 'CANCELLED' AND o.createdAt >= ${thirtyDaysAgoStr}
+            GROUP BY oi.productId
+        `
     ]);
+
+    const allProducts = allProductsRaw.map((p: any) => {
+        const viewsRaw = (viewStats as any[]).find((v: any) => v.productId === p.id);
+        const ordersRaw = (orderStats as any[]).find((o: any) => o.productId === p.id);
+        const views = viewsRaw ? Number(viewsRaw.count) : 0;
+        const orders = ordersRaw ? Number(ordersRaw.orderCount) : 0;
+        const ratio = views > 0 ? (orders / views) * 100 : 0;
+        return { ...p, ratio };
+    }).sort((a: any, b: any) => {
+        if (b.ratio !== a.ratio) return b.ratio - a.ratio;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
 
     // Filter products by category if specified
     // Use client-side filtering to handle any case/encoding issues
