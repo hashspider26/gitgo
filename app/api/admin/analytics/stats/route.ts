@@ -26,7 +26,10 @@ export async function GET() {
 
         // 2. Sources
         const sources: any[] = await prisma.$queryRaw`
-            SELECT source, COUNT(*) as count 
+            SELECT 
+                source, 
+                COUNT(*) as count,
+                SUM(CASE WHEN type = 'PURCHASE' THEN 1 ELSE 0 END) as purchases
             FROM AnalyticsEvent 
             WHERE createdAt >= ${thirtyDaysAgoStr}
             GROUP BY source
@@ -98,10 +101,30 @@ export async function GET() {
             LIMIT 100
         `;
 
+        const normalizedSources = sources.reduce((acc: any[], s: any) => {
+            let name = s.source || 'Direct';
+            if (['fb', 'facebook', 'facebook.com'].includes(name.toLowerCase())) name = 'Facebook';
+            if (['ig', 'instagram', 'instagram.com'].includes(name.toLowerCase())) name = 'Instagram';
+            if (name.toLowerCase() === 'direct') name = 'Direct';
+            
+            const existing = acc.find(item => item.source === name);
+            if (existing) {
+                existing._count._all += Number(s.count);
+                existing.orders += Number(s.purchases || 0);
+            } else {
+                acc.push({
+                    source: name,
+                    _count: { _all: Number(s.count) },
+                    orders: Number(s.purchases || 0)
+                });
+            }
+            return acc;
+        }, []).sort((a, b) => b._count._all - a._count._all);
+
         return NextResponse.json({
             basicStats: basicStats.map(s => ({ type: s.type, _count: { _all: Number(s.count) } })),
             uniqueVisitors: Number(uniqueVisitors[0]?.count || 0),
-            sources: sources.map(s => ({ source: s.source, _count: { _all: Number(s.count) } })),
+            sources: normalizedSources,
             devices: devices.map(d => ({ device: d.device, _count: { _all: Number(d.count) } })),
             topProducts: topProductsWithTitles,
             recentEvents: recentEvents.map(e => ({

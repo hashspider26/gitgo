@@ -45,6 +45,8 @@ model Product {
   advanceDiscount     Int      @default(0) // Advance payment discount amount
   advanceDiscountType String   @default("PKR") // "PKR" or "PERCENT"
   
+  position            Int      @default(0) // For custom sorting order
+  
   orderItems  OrderItem[]
   
   createdAt   DateTime @default(now())

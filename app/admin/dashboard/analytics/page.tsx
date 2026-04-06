@@ -120,14 +120,23 @@ export default function AnalyticsPage() {
                         </h3>
                         <div className="space-y-3 overflow-y-auto pr-2 flex-1 scrollbar-none">
                             {data?.sources?.map((s: any) => (
-                                <div key={s.source} className="flex items-center justify-between group">
+                                <div key={s.source} className="flex items-center justify-between group py-1.5 border-b border-zinc-50 last:border-0 hover:bg-zinc-50 transition-colors px-2 -mx-2 rounded-lg">
                                     <div className="flex items-center gap-2 md:gap-3">
                                         <div className="p-1.5 rounded-lg bg-zinc-100 text-zinc-600">
                                             <Globe className="h-3 w-3 md:h-4 md:w-4" />
                                         </div>
                                         <span className="font-bold text-[10px] md:text-sm text-zinc-700 ">{s.source || 'Direct'}</span>
                                     </div>
-                                    <span className="text-zinc-400 font-black text-[10px] md:text-sm">{s._count._all}</span>
+                                    <div className="flex items-center gap-2 md:gap-4 font-black">
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-zinc-600 text-[10px] md:text-sm">{s._count._all.toLocaleString()}</span>
+                                            <span className="text-[7px] md:text-[9px] text-zinc-400 uppercase tracking-tighter">Views</span>
+                                        </div>
+                                        <div className="flex flex-col items-end border-l border-zinc-100 pl-2 md:pl-4">
+                                            <span className="text-green-600 text-[10px] md:text-sm">{s.orders || 0}</span>
+                                            <span className="text-[7px] md:text-[9px] text-green-400 uppercase tracking-tighter">Orders</span>
+                                        </div>
+                                    </div>
                                 </div>
                             ))}
                         </div>

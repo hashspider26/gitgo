@@ -28,7 +28,12 @@ export default async function ShopPage({
     const thirtyDaysAgoStr = thirtyDaysAgo.toISOString();
 
     const [allProductsRaw, categoryDocs, viewStats, orderStats] = await Promise.all([
-        prisma.product.findMany(),
+        prisma.product.findMany({
+            orderBy: [
+                { position: 'asc' },
+                { createdAt: 'desc' }
+            ]
+        }),
         prisma.category.findMany({
             orderBy: { name: 'asc' }
         }),
@@ -54,9 +59,6 @@ export default async function ShopPage({
         const orders = ordersRaw ? Number(ordersRaw.orderCount) : 0;
         const ratio = views > 0 ? (orders / views) * 100 : 0;
         return { ...p, ratio };
-    }).sort((a: any, b: any) => {
-        if (b.ratio !== a.ratio) return b.ratio - a.ratio;
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
     // Filter products by category if specified
