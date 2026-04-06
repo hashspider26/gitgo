@@ -108,19 +108,25 @@ function ProductRow({ product }: { product: Product }) {
             as="tr"
             dragListener={false}
             dragControls={controls}
+            layout
             whileDrag={{ 
-                backgroundColor: "rgba(0,0,0,0.05)",
-                boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)"
+                backgroundColor: "rgba(0,0,0,0.08)",
+                boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+                zIndex: 10,
+                scale: 1.02
             }}
-            className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors bg-white dark:bg-black touch-none relative z-0"
+            className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors bg-white dark:bg-black relative"
             style={{ display: "table-row" }}
         >
             <td className="px-1 py-3 sm:px-6 sm:py-4 text-center">
                 <div 
-                    onPointerDown={(e) => controls.start(e)}
-                    className="cursor-grab active:cursor-grabbing p-1 inline-flex text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                    onPointerDown={(e) => {
+                        e.preventDefault();
+                        controls.start(e);
+                    }}
+                    className="cursor-grab active:cursor-grabbing p-2 sm:p-1 inline-flex text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 touch-none active:scale-125 transition-transform"
                 >
-                    <GripVertical className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <GripVertical className="h-5 w-5" />
                 </div>
             </td>
             <td className="px-1 py-3 sm:px-6 sm:py-4">
