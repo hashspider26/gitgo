@@ -124,42 +124,10 @@ export async function multiUpload(file: string, options: any) {
     return successfulResults[0];
 }
 
-/**
- * Randomly replaces the cloud name in a Cloudinary URL to distribute bandwidth load.
- * Also strips versioning to ensure compatibility between different accounts.
- */
 export function getRandomizedUrl(url: string | null): string | null {
-    if (!url || configs.length === 0) return url;
-
-    try {
-        // Extract the current cloud name from the URL
-        // Format: https://res.cloudinary.com/{cloud_name}/image/upload/...
-        const match = url.match(/res\.cloudinary\.com\/([^/]+)\/image\/upload/);
-        if (!match) return url;
-
-        const currentCloudName = match[1];
-        
-        // Pick a random config from the list
-        const randomIndex = Math.floor(Math.random() * configs.length);
-        const randomConfig = configs[randomIndex];
-
-        // FORCE OVERRIDE: 
-        // We always replace the cloud name with one from our configured list.
-        // This works even if only 1 account is configured, forcing old URLs to use the new cloud name.
-        
-        // Replace the cloud name 
-        let newUrl = url.replace(
-            `res.cloudinary.com/${currentCloudName}/`,
-            `res.cloudinary.com/${randomConfig.cloud_name}/`
-        );
-
-        // Strip version (v123456789/) if present to ensure compatibility
-        newUrl = newUrl.replace(/\/v\d+\//, '/');
-
-        return newUrl;
-    } catch {
-        return url;
-    }
+    // We disable URL randomization because each image should use the cloud_name
+    // of the account it was successfully uploaded to.
+    return url;
 }
 
 /**

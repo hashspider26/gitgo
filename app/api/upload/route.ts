@@ -41,7 +41,6 @@ export async function POST(req: Request) {
         const dataUri = `data:${file.type};base64,${b64}`;
 
         const uploadResult = await multiUpload(dataUri, {
-            folder: "greenvalleyseeds",
             public_id: filename.replace(/\.[^/.]+$/, ""),
             resource_type: "image",
             overwrite: true,
