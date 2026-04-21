@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Upload, X } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { getRandomizedUrl } from "@/lib/cloudinary";
 
 export default function EditProductPage({ params }: { params: { id: string } }) {
     const router = useRouter();
@@ -186,7 +187,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                                 {images.map((url, idx) => (
                                     <div key={idx} className="relative w-24 h-24 border rounded-md overflow-hidden bg-zinc-100">
                                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img src={url} alt="Product" className="object-cover w-full h-full" />
+                                        <img src={getRandomizedUrl(url) || ''} alt="Product" className="object-cover w-full h-full" />
                                         <button
                                             type="button"
                                             onClick={() => removeImage(idx)}

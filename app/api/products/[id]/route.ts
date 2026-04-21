@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
-import { cloudinary, extractPublicId, multiDelete } from "@/lib/cloudinary";
+import { cloudinary, multiDelete } from "@/lib/cloudinary-server";
+import { extractPublicId } from "@/lib/cloudinary";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {

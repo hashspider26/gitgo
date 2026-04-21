@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { cloudinary, cloudinaryConfigs, extractPublicId } from "@/lib/cloudinary";
+import { cloudinary, cloudinaryConfigs } from "@/lib/cloudinary-server";
+import { extractPublicId } from "@/lib/cloudinary";
 import { getToken } from "next-auth/jwt";
 
 // This route ensures all images for all products are present in all Cloudinary accounts
@@ -79,7 +80,6 @@ export async function POST(req: Request) {
                             public_id: publicId,
                             overwrite: true,
                             resource_type: "image",
-                            folder: "greenvalleyseeds"
                         });
                         return true;
                     } catch (error) {

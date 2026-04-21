@@ -1,25 +1,11 @@
 import { NextResponse } from "next/server";
-import { cloudinary, multiUpload } from "@/lib/cloudinary";
+import { multiUpload, ensureConfigs } from "@/lib/cloudinary-server";
 
 // Allow larger uploads (Vercel default is 4.5MB)
 export const maxDuration = 30;
 
-function isCloudinaryConfigured(): boolean {
-    if (process.env.CLOUDINARY_URL) return true;
-    if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) return true;
-    return false;
-}
-
 export async function POST(req: Request) {
     try {
-        if (!isCloudinaryConfigured()) {
-            console.error("Upload failed: Cloudinary not configured. Set CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME, API_KEY, API_SECRET.");
-            return NextResponse.json(
-                { error: "Image upload is not configured. Please set CLOUDINARY_URL (or Cloudinary env vars) on the server." },
-                { status: 503 }
-            );
-        }
-
         const formData = await req.formData();
         const file = formData.get("file") as File;
 
@@ -27,21 +13,22 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "No file received." }, { status: 400 });
         }
 
-        // Check if file is an image
-        const isImage = file.type.startsWith("image/");
-        if (!isImage) {
-            return NextResponse.json({ error: "File must be an image." }, { status: 400 });
-        }
-
         const buffer = Buffer.from(await file.arrayBuffer());
         const filename = Date.now() + "_" + file.name.replaceAll(" ", "_").replace(/[^a-zA-Z0-9._-]/g, "_");
-
-        // Use base64 upload (reliable on Vercel, no sharp native module needed)
+        
+        // Use base64 data URI for Cloudinary upload
         const b64 = buffer.toString("base64");
         const dataUri = `data:${file.type};base64,${b64}`;
 
+        // Ensure configs are loaded
+        const configs = ensureConfigs();
+        if (configs.length === 0) {
+            throw new Error("Cloudinary accounts not configured in environment variables.");
+        }
+
         const uploadResult = await multiUpload(dataUri, {
             public_id: filename.replace(/\.[^/.]+$/, ""),
+            folder: "greenvalleyseeds/greenvalleyseeds",
             resource_type: "image",
             overwrite: true,
         });
@@ -51,16 +38,12 @@ export async function POST(req: Request) {
             public_id: uploadResult.public_id,
         }, { status: 201 });
 
-    } catch (error) {
-        console.error("Upload error:", error);
-        const err = error as any;
-        const message = err?.message
-            || err?.error?.message
-            || (typeof err === "string" ? err : "Unknown error");
+    } catch (error: any) {
+        console.error("Cloudinary Upload Error:", error);
+        
         return NextResponse.json({
             error: "Failed to upload file.",
-            details: String(message),
-            hint: !isCloudinaryConfigured() ? "Set CLOUDINARY_URL on Vercel (Project Settings > Environment Variables)." : undefined,
+            details: error?.message || String(error),
         }, { status: 500 });
     }
 }

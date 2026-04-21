@@ -1,4 +1,5 @@
-import { v2 as cloudinary } from 'cloudinary';
+// Client-safe Cloudinary utilities
+// This file can be imported by BOTH client and server components.
 
 export interface CloudinaryConfig {
     cloud_name: string;
@@ -6,161 +7,52 @@ export interface CloudinaryConfig {
     api_secret: string;
 }
 
-// Support multiple configurations via CLOUDINARY_CONFIGS (JSON array) or a list of URLs
-function getConfigs(): CloudinaryConfig[] {
-    const configs: CloudinaryConfig[] = [];
-
-    // 1. Check for CLOUDINARY_CONFIGS JSON array
-    if (process.env.CLOUDINARY_CONFIGS) {
-        try {
-            const parsed = JSON.parse(process.env.CLOUDINARY_CONFIGS);
-            if (Array.isArray(parsed)) {
-                configs.push(...parsed);
-            }
-        } catch (e) {
-            console.error('Failed to parse CLOUDINARY_CONFIGS:', e);
-        }
-    }
-
-    // 2. Check for multiple CLOUDINARY_URLS (comma separated)
-    if (process.env.CLOUDINARY_URLS) {
-        const urls = process.env.CLOUDINARY_URLS.split(',').map(u => u.trim());
-        for (const url of urls) {
-            const match = url.match(/cloudinary:\/\/([^:]+):([^@]+)@(.+)/);
-            if (match) {
-                configs.push({
-                    api_key: match[1],
-                    api_secret: match[2],
-                    cloud_name: match[3],
-                });
-            }
-        }
-    }
-
-    // 3. Fallback to single CLOUDINARY_URL
-    if (process.env.CLOUDINARY_URL) {
-        const match = process.env.CLOUDINARY_URL.match(/cloudinary:\/\/([^:]+):([^@]+)@(.+)/);
-        if (match && !configs.some(c => c.cloud_name === match[3])) {
-            configs.push({
-                api_key: match[1],
-                api_secret: match[2],
-                cloud_name: match[3],
-            });
-        }
-    }
-
-    // 4. Check for numbered env vars (CLOUDINARY_CLOUD_NAME_1, etc.)
-    for (let i = 1; i <= 10; i++) {
-        const cloudName = process.env[`CLOUDINARY_CLOUD_NAME_${i}`];
-        const apiKey = process.env[`CLOUDINARY_API_KEY_${i}`];
-        const apiSecret = process.env[`CLOUDINARY_API_SECRET_${i}`];
-
-        if (cloudName && apiKey && apiSecret) {
-            if (!configs.some(c => c.cloud_name === cloudName)) {
-                configs.push({
-                    cloud_name: cloudName,
-                    api_key: apiKey,
-                    api_secret: apiSecret,
-                });
-            }
-        }
-    }
-
-    // 5. Fallback to individual env vars (default)
-    if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
-        if (!configs.some(c => c.cloud_name === process.env.CLOUDINARY_CLOUD_NAME)) {
-            configs.push({
-                cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-                api_key: process.env.CLOUDINARY_API_KEY,
-                api_secret: process.env.CLOUDINARY_API_SECRET,
-            });
-        }
-    }
-
-    return configs;
-}
-
-const configs = getConfigs();
-export const cloudinaryConfigs = configs;
-
-// Configure the singleton with the first config for backward compatibility
-if (configs.length > 0) {
-    cloudinary.config(configs[0]);
-} else {
-    console.warn('Cloudinary not configured. Set CLOUDINARY_URLS, CLOUDINARY_CONFIGS, or individual env vars.');
-}
-
-export { cloudinary };
-
-/**
- * Uploads an image to all configured Cloudinary accounts simultaneously.
- * Returns the result from the first successful upload.
- */
-export async function multiUpload(file: string, options: any) {
-    if (configs.length === 0) {
-        throw new Error('No Cloudinary accounts configured');
-    }
-
-    const uploadPromises = configs.map(async (config) => {
-        try {
-            return await cloudinary.uploader.upload(file, {
-                ...options,
-                ...config, // Override global config with this account's config
-            });
-        } catch (error) {
-            console.error(`Upload failed for account ${config.cloud_name}:`, error);
-            return null;
-        }
-    });
-
-    const results = await Promise.all(uploadPromises);
-    const successfulResults = results.filter(r => r !== null);
-
-    if (successfulResults.length === 0) {
-        throw new Error('Failed to upload to any Cloudinary account');
-    }
-
-    // Return the result from the first account as the "primary" reference
-    return successfulResults[0];
-}
+// Public cloud names for client-side load balancing
+// IMPORTANT: These should ideally come from public env vars (starting with NEXT_PUBLIC_)
+// for true client-side support, butConstructing based on process.env on server is fine.
+const PUBLIC_CLOUD_NAMES = [
+    process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME,
+    "drrp9ew1d" // Fallback/Hardcoded if necessary for performance
+].filter(Boolean) as string[];
 
 export function getRandomizedUrl(url: string | null): string | null {
-    // We disable URL randomization because each image should use the cloud_name
-    // of the account it was successfully uploaded to.
+    if (!url) return null;
+    
+    const cloudNames = PUBLIC_CLOUD_NAMES;
+    if (cloudNames.length === 0) return url;
+
+    // Local path conversion
+    if (url.startsWith('/uploads/')) {
+        const filename = url.replace('/uploads/', '');
+        const hash = Array.from(filename).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        const cloudName = cloudNames[hash % cloudNames.length];
+        return `https://res.cloudinary.com/${cloudName}/image/upload/f_auto,q_auto/v1/greenvalleyseeds/greenvalleyseeds/${filename}`;
+    }
+
+    // Existing Cloudinary URL
+    if (url.includes('cloudinary.com')) {
+        if (url.includes('/greenvalleyseeds/') && !url.includes('/greenvalleyseeds/greenvalleyseeds/')) {
+            url = url.replace('/greenvalleyseeds/', '/greenvalleyseeds/greenvalleyseeds/');
+        }
+        
+        const parts = url.split('/');
+        const cloudIndex = parts.findIndex(p => p.includes('cloudinary.com'));
+        if (cloudIndex !== -1 && parts[cloudIndex + 1]) {
+            const pathPart = parts.slice(cloudIndex + 2).join('/');
+            const hash = Array.from(pathPart).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            const cloudName = cloudNames[hash % cloudNames.length];
+            return `https://res.cloudinary.com/${cloudName}/${pathPart}`;
+        }
+    }
+
     return url;
 }
 
-/**
- * Deletes an image from all configured Cloudinary accounts simultaneously.
- */
-export async function multiDelete(publicId: string) {
-    if (configs.length === 0) return;
-
-    const deletePromises = configs.map(async (config) => {
-        try {
-            return await cloudinary.uploader.destroy(publicId, {
-                ...config,
-            } as any);
-        } catch (error) {
-            console.error(`Delete failed for account ${config.cloud_name}:`, error);
-            return null;
-        }
-    });
-
-    return await Promise.all(deletePromises);
-}
-
-// Helper function to extract public_id from Cloudinary URL
 export function extractPublicId(url: string): string | null {
     try {
         const match = url.match(/\/upload\/(?:v\d+\/)?([^/]+(?:\/[^/]+)*?)(?:\.[^.]+)?$/);
-        if (match && match[1]) {
-            return match[1].replace(/\.[^.]+$/, '');
-        }
-        return null;
+        return match ? match[1].replace(/\.[^.]+$/, '') : null;
     } catch {
         return null;
     }
 }
-
-

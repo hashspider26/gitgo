@@ -7,6 +7,7 @@ import { Reorder, useDragControls } from "framer-motion";
 import { StockToggleButton } from "./stock-toggle-button";
 import { DeleteProductButton } from "./delete-product-button";
 import { useRouter } from "next/navigation";
+import { getRandomizedUrl } from "@/lib/cloudinary";
 
 interface Product {
     id: string;
@@ -98,7 +99,9 @@ function ProductRow({ product }: { product: Product }) {
     let imageUrl = null;
     try {
         const images = product.images ? JSON.parse(product.images) : [];
-        if (Array.isArray(images) && images.length > 0) imageUrl = images[0];
+        if (Array.isArray(images) && images.length > 0) {
+            imageUrl = getRandomizedUrl(images[0]);
+        }
     } catch (e) { }
 
     return (

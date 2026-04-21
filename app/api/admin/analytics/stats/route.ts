@@ -3,25 +3,39 @@ import { prisma } from "@/lib/prisma";
 
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(req: Request) {
     try {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const thirtyDaysAgoStr = thirtyDaysAgo.toISOString();
+        const { searchParams } = new URL(req.url);
+        const filter = searchParams.get('filter') || '30d';
+
+        let startDate = new Date();
+        if (filter === '24h') {
+            startDate.setHours(startDate.getHours() - 24);
+        } else if (filter === '7d') {
+            startDate.setDate(startDate.getDate() - 7);
+        } else if (filter === '28d') {
+            startDate.setDate(startDate.getDate() - 28);
+        } else if (filter === 'all') {
+            startDate = new Date(0); // Epoch
+        } else {
+            startDate.setDate(startDate.getDate() - 30); // Default
+        }
+        
+        const startDateStr = startDate.toISOString();
 
         // 1. Basic Stats using Raw SQL
         const basicStats: any[] = await prisma.$queryRaw`
             SELECT type, COUNT(*) as count 
             FROM AnalyticsEvent 
-            WHERE createdAt >= ${thirtyDaysAgoStr}
+            WHERE createdAt >= ${startDateStr}
             GROUP BY type
         `;
 
-        // 1.5 Unique Visitors (Unique IPs in last 30 days)
+        // 1.5 Unique Visitors (Unique IPs in last timeframe)
         const uniqueVisitors: any[] = await prisma.$queryRaw`
             SELECT COUNT(DISTINCT ip) as count 
             FROM AnalyticsEvent 
-            WHERE createdAt >= ${thirtyDaysAgoStr}
+            WHERE createdAt >= ${startDateStr}
         `;
 
         // 2. Sources
@@ -31,7 +45,7 @@ export async function GET() {
                 COUNT(*) as count,
                 SUM(CASE WHEN type = 'PURCHASE' THEN 1 ELSE 0 END) as purchases
             FROM AnalyticsEvent 
-            WHERE createdAt >= ${thirtyDaysAgoStr}
+            WHERE createdAt >= ${startDateStr}
             GROUP BY source
             ORDER BY count DESC
         `;
@@ -40,7 +54,7 @@ export async function GET() {
         const devices: any[] = await prisma.$queryRaw`
             SELECT device, COUNT(*) as count 
             FROM AnalyticsEvent 
-            WHERE createdAt >= ${thirtyDaysAgoStr}
+            WHERE createdAt >= ${startDateStr}
             GROUP BY device
         `;
 
@@ -48,7 +62,7 @@ export async function GET() {
         const topProducts: any[] = await prisma.$queryRaw`
             SELECT productId, COUNT(*) as count 
             FROM AnalyticsEvent 
-            WHERE type = 'VIEW_PRODUCT' AND productId IS NOT NULL AND createdAt >= ${thirtyDaysAgoStr}
+            WHERE type = 'VIEW_PRODUCT' AND productId IS NOT NULL AND createdAt >= ${startDateStr}
             GROUP BY productId
             ORDER BY count DESC
             LIMIT 100
@@ -58,7 +72,7 @@ export async function GET() {
             SELECT oi.productId, SUM(oi.quantity) as soldQuantity, COUNT(DISTINCT oi.orderId) as orderCount
             FROM OrderItem oi
             JOIN "Order" o ON oi.orderId = o.id
-            WHERE o.status != 'CANCELLED' AND o.createdAt >= ${thirtyDaysAgoStr}
+            WHERE o.status != 'CANCELLED' AND o.createdAt >= ${startDateStr}
             GROUP BY oi.productId
         `;
 
@@ -121,12 +135,34 @@ export async function GET() {
             return acc;
         }, []).sort((a, b) => b._count._all - a._count._all);
 
+        // 6. Time Series for Line Chart
+        const allEvents = await prisma.analyticsEvent.findMany({
+            where: { createdAt: { gte: startDate } },
+            select: { createdAt: true, type: true }
+        });
+
+        const timeSeries = allEvents.reduce((acc: Record<string, any>, event) => {
+            const date = event.createdAt.toISOString().split('T')[0];
+            if (!acc[date]) {
+                acc[date] = { date, PAGE_VIEW: 0, PURCHASE: 0, ADD_TO_CART: 0 };
+            }
+            if (acc[date][event.type] !== undefined) {
+                acc[date][event.type]++;
+            } else if (event.type === 'VIEW_PRODUCT' || event.type === 'PAGE_VIEW') {
+                acc[date].PAGE_VIEW++;
+            }
+            return acc;
+        }, {});
+        
+        const chartData = Object.values(timeSeries).sort((a: any, b: any) => a.date.localeCompare(b.date));
+
         return NextResponse.json({
             basicStats: basicStats.map(s => ({ type: s.type, _count: { _all: Number(s.count) } })),
             uniqueVisitors: Number(uniqueVisitors[0]?.count || 0),
             sources: normalizedSources,
             devices: devices.map(d => ({ device: d.device, _count: { _all: Number(d.count) } })),
             topProducts: topProductsWithTitles,
+            chartData,
             recentEvents: recentEvents.map(e => ({
                 ...e,
                 metadata: e.metadata || null
