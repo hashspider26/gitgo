@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-import { cloudinary, multiDelete } from "@/lib/cloudinary-server";
-import { extractPublicId } from "@/lib/cloudinary";
 import { prisma } from "@/lib/prisma";
+import { multiDelete } from "@/lib/cloudinary-server";
+import { extractPublicId } from "@/lib/cloudinary";
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
     try {
@@ -33,7 +32,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
                 for (const imgUrl of removedImages) {
                     if (imgUrl.includes('cloudinary.com')) {
                         const publicId = extractPublicId(imgUrl);
-                        if (publicId) await multiDelete(publicId);
+                        if (publicId) await multiDelete(publicId).catch(console.warn);
                     }
                 }
             }
@@ -92,8 +91,6 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
                                 }
                             }
                         }
-                        // Legacy: Handle old local uploads (if any)
-                        // These will be ignored on Vercel since filesystem is read-only
                     }
                 }
             }

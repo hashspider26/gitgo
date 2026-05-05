@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { multiUpload, ensureConfigs } from "@/lib/cloudinary-server";
+import { multiUpload } from "@/lib/cloudinary-server";
 
 // Allow larger uploads (Vercel default is 4.5MB)
 export const maxDuration = 30;
@@ -14,32 +14,21 @@ export async function POST(req: Request) {
         }
 
         const buffer = Buffer.from(await file.arrayBuffer());
-        const filename = Date.now() + "_" + file.name.replaceAll(" ", "_").replace(/[^a-zA-Z0-9._-]/g, "_");
-        
-        // Use base64 data URI for Cloudinary upload
-        const b64 = buffer.toString("base64");
-        const dataUri = `data:${file.type};base64,${b64}`;
+        const base64Data = buffer.toString('base64');
+        const fileUri = `data:${file.type};base64,${base64Data}`;
 
-        // Ensure configs are loaded
-        const configs = ensureConfigs();
-        if (configs.length === 0) {
-            throw new Error("Cloudinary accounts not configured in environment variables.");
-        }
-
-        const uploadResult = await multiUpload(dataUri, {
-            public_id: filename.replace(/\.[^/.]+$/, ""),
-            folder: "greenvalleyseeds/greenvalleyseeds",
-            resource_type: "image",
-            overwrite: true,
+        const result = await multiUpload(fileUri, {
+            folder: "gvs_uploads",
+            resource_type: "auto",
         });
 
         return NextResponse.json({
-            url: uploadResult.secure_url,
-            public_id: uploadResult.public_id,
+            url: result.secure_url,
+            key: result.public_id,
         }, { status: 201 });
 
     } catch (error: any) {
-        console.error("Cloudinary Upload Error:", error);
+        console.error("Upload Error:", error);
         
         return NextResponse.json({
             error: "Failed to upload file.",

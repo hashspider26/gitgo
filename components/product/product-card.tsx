@@ -33,7 +33,7 @@ export function ProductCard({ product }: ProductCardProps) {
     try {
         const images = product.images ? JSON.parse(product.images) : [];
         if (Array.isArray(images) && images.length > 0) {
-            imageUrl = getRandomizedUrl(images[0]);
+            imageUrl = getRandomizedUrl(images[0], "f_auto,q_auto,w_500,c_limit");
         }
     } catch (e) { }
 
@@ -54,6 +54,7 @@ export function ProductCard({ product }: ProductCardProps) {
                         <img
                             src={imageUrl}
                             alt={product.title}
+                            loading="lazy"
                             className={`object-cover w-full h-full transition-transform duration-700 ${!isOutOfStock ? 'group-hover:scale-105' : 'grayscale-[0.5]'}`}
                         />
                     ) : (

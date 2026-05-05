@@ -1,11 +1,16 @@
+
 import { prisma } from "../lib/prisma";
 
 async function check() {
-    const products = await prisma.product.findMany();
+    const products = await prisma.product.findMany({
+        take: 5
+    });
     console.log(`Current product count: ${products.length}`);
-    if (products.length > 0) {
-        console.log("Product IDs:", products.map(p => p.id));
-    }
+    products.forEach(p => {
+        console.log(`Product: ${p.title}`);
+        console.log(`Images: ${p.images}`);
+        console.log('---');
+    });
 }
 
 check().catch(console.error).finally(() => prisma.$disconnect());

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { getRandomizedUrl } from "@/lib/cloudinary";
 
 interface ImageGalleryProps {
     images: string[];
@@ -24,7 +25,7 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
             <div className="aspect-square w-full bg-zinc-100 overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                    src={activeImage}
+                    src={getRandomizedUrl(activeImage, "f_auto,q_auto,w_1200,c_limit") || activeImage}
                     alt={title}
                     className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
                 />
@@ -46,8 +47,9 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
                             >
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
-                                    src={url}
+                                    src={getRandomizedUrl(url, "f_auto,q_auto,w_150,c_fill") || url}
                                     alt={`${title} thumbnail ${idx + 1}`}
+                                    loading="lazy"
                                     className="object-cover w-full h-full"
                                 />
                             </button>

@@ -21,8 +21,13 @@ export async function POST(request: Request) {
         let totalWeightGrams = 0;
         let maxBaseDeliveryFee = 0;
 
+        const productIds = items.map((i: any) => i.productId);
+        const dbProducts = await prisma.product.findMany({
+            where: { id: { in: productIds } }
+        });
+
         for (const item of items) {
-            const product = await prisma.product.findUnique({ where: { id: item.productId } });
+            const product = dbProducts.find(p => p.id === item.productId);
             if (!product) continue;
 
             const productTotal = product.price * item.quantity;
@@ -67,17 +72,23 @@ export async function POST(request: Request) {
         };
 
         let order: any = null;
-        const maxAttempts = 10;
+        const maxAttempts = 5;
+        
+        // Find the last readable ID once outside the attempt loop to minimize reads
+        // If it fails due to a collision, we refresh it inside the loop
+        let lastOrder = await prisma.order.findFirst({
+            where: { readableId: { startsWith: 'GVS-' } },
+            orderBy: { readableId: 'desc' },
+            select: { readableId: true }
+        });
+
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
-            const ordersWithReadable = await prisma.order.findMany({
-                where: { readableId: { not: null } },
-                select: { readableId: true }
-            });
             let maxNum = 0;
-            for (const o of ordersWithReadable) {
-                const m = (o.readableId || "").match(/^GVS-(\d+)$/);
-                if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+            if (lastOrder?.readableId) {
+                const m = lastOrder.readableId.match(/^GVS-(\d+)$/);
+                if (m) maxNum = parseInt(m[1], 10);
             }
+            
             const nextIdNumber = maxNum + 1;
             const readableId = `GVS-${nextIdNumber.toString().padStart(5, "0")}`;
 
@@ -89,6 +100,12 @@ export async function POST(request: Request) {
             } catch (err: any) {
                 const isUniqueViolation = err?.code === "P2002" || (err?.message && String(err.message).includes("UNIQUE constraint failed"));
                 if (isUniqueViolation && attempt < maxAttempts - 1) {
+                    // Collision! Refresh lastOrder and try again
+                    lastOrder = await prisma.order.findFirst({
+                        where: { readableId: { startsWith: 'GVS-' } },
+                        orderBy: { readableId: 'desc' },
+                        select: { readableId: true }
+                    });
                     continue;
                 }
                 throw err;

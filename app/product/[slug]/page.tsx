@@ -11,7 +11,7 @@ import { TrackViewItem } from "@/components/analytics/track-view-item";
 import { getRandomizedUrl } from "@/lib/cloudinary";
 
 // Force dynamic rendering to ensure fresh data and valid metadata generation on request
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600; // Cache for 1 hour
 
 interface Props {
     params: { slug: string };

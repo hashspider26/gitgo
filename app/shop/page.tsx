@@ -14,7 +14,7 @@ function formatPrice(amount: number) {
     }).format(amount);
 }
 
-export const revalidate = 0;
+export const revalidate = 3600; // Cache for 1 hour
 
 export default async function ShopPage({
     searchParams,
@@ -27,8 +27,14 @@ export default async function ShopPage({
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const thirtyDaysAgoStr = thirtyDaysAgo.toISOString();
 
-    const [allProductsRaw, categoryDocs, viewStats, orderStats] = await Promise.all([
+    const [allProducts, categoryDocs] = await Promise.all([
         prisma.product.findMany({
+            where: category ? {
+                OR: [
+                    { category: { equals: category } },
+                    { category: { equals: category.toLowerCase() } }
+                ]
+            } : undefined,
             orderBy: [
                 { position: 'asc' },
                 { createdAt: 'desc' }
@@ -36,48 +42,8 @@ export default async function ShopPage({
         }),
         prisma.category.findMany({
             orderBy: { name: 'asc' }
-        }),
-        prisma.$queryRaw`
-            SELECT productId, COUNT(*) as count 
-            FROM AnalyticsEvent 
-            WHERE type = 'VIEW_PRODUCT' AND productId IS NOT NULL AND createdAt >= ${thirtyDaysAgoStr}
-            GROUP BY productId
-        `,
-        prisma.$queryRaw`
-            SELECT oi.productId, COUNT(DISTINCT oi.orderId) as orderCount
-            FROM OrderItem oi
-            JOIN "Order" o ON oi.orderId = o.id
-            WHERE o.status != 'CANCELLED' AND o.createdAt >= ${thirtyDaysAgoStr}
-            GROUP BY oi.productId
-        `
-    ]);
-
-    const allProducts = allProductsRaw.map((p: any) => {
-        const viewsRaw = (viewStats as any[]).find((v: any) => v.productId === p.id);
-        const ordersRaw = (orderStats as any[]).find((o: any) => o.productId === p.id);
-        const views = viewsRaw ? Number(viewsRaw.count) : 0;
-        const orders = ordersRaw ? Number(ordersRaw.orderCount) : 0;
-        const ratio = views > 0 ? (orders / views) * 100 : 0;
-        return { ...p, ratio };
-    });
-
-    // Filter products by category if specified
-    // Use client-side filtering to handle any case/encoding issues
-    const filteredProducts = category 
-        ? allProducts.filter(p => {
-            // Try exact match first
-            if (p.category === category) return true;
-            // Try case-insensitive match
-            if (p.category.toLowerCase() === category.toLowerCase()) return true;
-            // Try URL-encoded match
-            try {
-                if (encodeURIComponent(p.category) === category || p.category === decodeURIComponent(category)) return true;
-            } catch (e) {
-                // Ignore encoding errors
-            }
-            return false;
         })
-        : allProducts;
+    ]);
 
     const categories = categoryDocs.map((c: any) => c.name);
 
@@ -154,9 +120,9 @@ export default async function ShopPage({
                 {/* Product Grid */}
                 <div className="flex-1">
                     <Suspense fallback={<ProductGridSkeleton count={8} />}>
-                        {filteredProducts.length > 0 ? (
+                        {allProducts.length > 0 ? (
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-6">
-                                {filteredProducts.map((p: any) => (
+                                {allProducts.map((p: any) => (
                                     <ProductCard key={p.id} product={p} />
                                 ))}
                             </div>

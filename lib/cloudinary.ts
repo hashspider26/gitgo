@@ -7,42 +7,54 @@ export interface CloudinaryConfig {
     api_secret: string;
 }
 
-// Public cloud names for client-side load balancing
-// IMPORTANT: These should ideally come from public env vars (starting with NEXT_PUBLIC_)
-// for true client-side support, butConstructing based on process.env on server is fine.
-const PUBLIC_CLOUD_NAMES = [
-    process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME,
-    "drrp9ew1d" // Fallback/Hardcoded if necessary for performance
-].filter(Boolean) as string[];
 
-export function getRandomizedUrl(url: string | null): string | null {
+
+export function getRandomizedUrl(url: string | null, transformations: string = "f_auto,q_auto"): string | null {
     if (!url) return null;
     
-    const cloudNames = PUBLIC_CLOUD_NAMES;
-    if (cloudNames.length === 0) return url;
+    // The active cloud name from env or fallback
+    const activeCloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME || "dglf8tzbw";
 
-    // Local path conversion
+    // Local path conversion (Legacy support for /uploads/ prefix)
     if (url.startsWith('/uploads/')) {
         const filename = url.replace('/uploads/', '');
-        const hash = Array.from(filename).reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        const cloudName = cloudNames[hash % cloudNames.length];
-        return `https://res.cloudinary.com/${cloudName}/image/upload/f_auto,q_auto/v1/greenvalleyseeds/greenvalleyseeds/${filename}`;
+        return `https://res.cloudinary.com/${activeCloudName}/image/upload/${transformations}/v1/greenvalleyseeds/greenvalleyseeds/${filename}`;
     }
 
     // Existing Cloudinary URL
     if (url.includes('cloudinary.com')) {
+        // Fix double folder nesting issues if they exist in legacy data
         if (url.includes('/greenvalleyseeds/') && !url.includes('/greenvalleyseeds/greenvalleyseeds/')) {
             url = url.replace('/greenvalleyseeds/', '/greenvalleyseeds/greenvalleyseeds/');
         }
-        
+
         const parts = url.split('/');
+        const uploadIndex = parts.findIndex(p => p === 'upload');
         const cloudIndex = parts.findIndex(p => p.includes('cloudinary.com'));
+        
+        // Ensure the cloud name is updated to the active one (fixes legacy ddpfmekx6 urls)
         if (cloudIndex !== -1 && parts[cloudIndex + 1]) {
-            const pathPart = parts.slice(cloudIndex + 2).join('/');
-            const hash = Array.from(pathPart).reduce((acc, char) => acc + char.charCodeAt(0), 0);
-            const cloudName = cloudNames[hash % cloudNames.length];
-            return `https://res.cloudinary.com/${cloudName}/${pathPart}`;
+            parts[cloudIndex + 1] = activeCloudName;
         }
+
+        if (uploadIndex !== -1) {
+            // Check if there are already transformations
+            const nextPart = parts[uploadIndex + 1];
+            const hasTransformations = nextPart && (
+                nextPart.includes(',') || 
+                nextPart.startsWith('w_') || 
+                nextPart.startsWith('f_') || 
+                nextPart.startsWith('q_') ||
+                nextPart.startsWith('c_')
+            );
+            
+            if (!hasTransformations) {
+                // Insert transformations after /upload/
+                parts.splice(uploadIndex + 1, 0, transformations);
+            }
+        }
+        
+        return parts.join('/');
     }
 
     return url;
