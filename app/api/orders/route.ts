@@ -138,9 +138,17 @@ export async function POST(request: Request) {
             where: { id: order.id },
             include: { items: { include: { product: true } } }
         });
+        
         if (fullOrder) {
+            // 1. Send Discord notification
             sendDiscordOrderNotification(fullOrder).catch(err =>
                 console.error("Delayed Discord notification failed:", err)
+            );
+
+            // 2. Track purchase via Meta Conversions API (CAPI) for deduplication
+            const { trackPurchaseServer } = await import("@/lib/meta-capi");
+            trackPurchaseServer(fullOrder).catch(err => 
+                console.error("Meta CAPI tracking failed:", err)
             );
         }
 
