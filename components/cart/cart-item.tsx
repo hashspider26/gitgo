@@ -35,6 +35,9 @@ export function CartItem({ item }: CartItemProps) {
                     <h4 className="text-sm font-medium line-clamp-2 leading-tight">
                         {item.title}
                     </h4>
+                    {item.variationTitle && (
+                        <p className="text-xs text-zinc-500 mt-0.5">{item.variationTitle}</p>
+                    )}
                     <p className="mt-1 text-sm font-semibold text-primary">
                         {formatCurrency(item.price)}
                     </p>
@@ -46,7 +49,7 @@ export function CartItem({ item }: CartItemProps) {
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 rounded-sm"
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            onClick={() => updateQuantity(item.id, item.quantity - 1, item.variationId)}
                         >
                             <Minus className="h-3 w-3" />
                             <span className="sr-only">Decrease quantity</span>
@@ -56,7 +59,7 @@ export function CartItem({ item }: CartItemProps) {
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 rounded-sm"
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            onClick={() => updateQuantity(item.id, item.quantity + 1, item.variationId)}
                         >
                             <Plus className="h-3 w-3" />
                             <span className="sr-only">Increase quantity</span>
@@ -67,7 +70,7 @@ export function CartItem({ item }: CartItemProps) {
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => removeItem(item.id)}
+                        onClick={() => removeItem(item.id, item.variationId)}
                     >
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Remove item</span>

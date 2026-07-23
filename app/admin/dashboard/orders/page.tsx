@@ -85,6 +85,7 @@ export default async function OrdersPage() {
                                                     <div className="flex flex-col">
                                                         <span className="font-medium text-sm text-zinc-900 dark:text-zinc-200 group-hover:text-primary transition-colors">
                                                             {item.product.title}
+                                                            {(item as any).dealTitle && <span className="ml-2 px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-[10px] uppercase tracking-wider rounded-md text-zinc-600 dark:text-zinc-300">{(item as any).dealTitle}</span>}
                                                         </span>
                                                         <span className="text-xs text-zinc-500 dark:text-zinc-400">
                                                             Qty: {item.quantity} × PKR {item.price}

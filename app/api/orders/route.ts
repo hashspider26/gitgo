@@ -23,14 +23,25 @@ export async function POST(request: Request) {
 
         const productIds = items.map((i: any) => i.productId);
         const dbProducts = await prisma.product.findMany({
-            where: { id: { in: productIds } }
+            where: { id: { in: productIds } },
+            include: { variations: true }
         });
 
         for (const item of items) {
             const product = dbProducts.find(p => p.id === item.productId);
             if (!product) continue;
 
-            const productTotal = product.price * item.quantity;
+            let finalPrice = product.price;
+            let variationTitle = item.variationTitle || null;
+            if (item.variationId && product.variations) {
+                const variation = product.variations.find((v: any) => v.id === item.variationId);
+                if (variation) {
+                    finalPrice = variation.price;
+                    variationTitle = variation.title;
+                }
+            }
+
+            const productTotal = finalPrice * item.quantity;
             subtotal += productTotal;
             const weight = (product as any).weight || 0;
             const deliveryFee = (product as any).deliveryFee || 0;
@@ -40,7 +51,8 @@ export async function POST(request: Request) {
             orderItems.push({
                 productId: product.id,
                 quantity: item.quantity,
-                price: product.price
+                price: finalPrice,
+                dealTitle: variationTitle
             });
         }
 
@@ -73,7 +85,7 @@ export async function POST(request: Request) {
 
         let order: any = null;
         const maxAttempts = 5;
-        
+
         // Find the last readable ID once outside the attempt loop to minimize reads
         // If it fails due to a collision, we refresh it inside the loop
         let lastOrder = await prisma.order.findFirst({
@@ -88,7 +100,7 @@ export async function POST(request: Request) {
                 const m = lastOrder.readableId.match(/^GVS-(\d+)$/);
                 if (m) maxNum = parseInt(m[1], 10);
             }
-            
+
             const nextIdNumber = maxNum + 1;
             const readableId = `GVS-${nextIdNumber.toString().padStart(5, "0")}`;
 
@@ -138,7 +150,7 @@ export async function POST(request: Request) {
             where: { id: order.id },
             include: { items: { include: { product: true } } }
         });
-        
+
         if (fullOrder) {
             // 1. Send Discord notification
             sendDiscordOrderNotification(fullOrder).catch(err =>
@@ -147,7 +159,7 @@ export async function POST(request: Request) {
 
             // 2. Track purchase via Meta Conversions API (CAPI) for deduplication
             const { trackPurchaseServer } = await import("@/lib/meta-capi");
-            trackPurchaseServer(fullOrder).catch(err => 
+            trackPurchaseServer(fullOrder).catch(err =>
                 console.error("Meta CAPI tracking failed:", err)
             );
         }

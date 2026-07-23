@@ -11,6 +11,7 @@ export async function GET(request: Request) {
         const products = await prisma.product.findMany({
             where: category ? { category } : undefined,
             orderBy: { createdAt: 'desc' },
+            include: { variations: true },
         });
         return NextResponse.json(products);
     } catch (error) {
@@ -40,7 +41,19 @@ export async function POST(request: Request) {
                 weight: body.weight ? Number(body.weight) : 0,
                 advanceDiscount: body.advanceDiscount ? Number(body.advanceDiscount) : 0,
                 advanceDiscountType: body.advanceDiscountType || "PKR",
-            }
+                ...(body.variations && body.variations.length > 0 && {
+                    variations: {
+                        create: body.variations.map((v: any) => ({
+                            title: v.title,
+                            price: Number(v.price),
+                            originalPrice: v.originalPrice ? Number(v.originalPrice) : null,
+                            discountLabel: v.discountLabel || null,
+                            stock: Number(v.stock || 0)
+                        }))
+                    }
+                })
+            },
+            include: { variations: true }
         });
         return NextResponse.json(product);
     } catch (error: any) {

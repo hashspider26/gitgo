@@ -19,6 +19,14 @@ interface ProductActionsProps {
         deliveryFee?: number;
         advanceDiscount?: number;
         advanceDiscountType?: string;
+        variations?: {
+            id: string;
+            title: string;
+            price: number;
+            originalPrice: number | null;
+            discountLabel: string | null;
+            stock: number;
+        }[];
     };
 }
 
@@ -29,6 +37,16 @@ export function ProductActions({ product }: ProductActionsProps) {
     const [quantity, setQuantity] = useState(1);
     const maxQty = Math.max(1, stock);
     const safeQuantity = Math.min(Math.max(1, quantity), maxQty);
+
+    // Deals state
+    const deals = product.variations || [];
+    const hasDeals = deals.length > 0;
+    const [selectedDealId, setSelectedDealId] = useState<string | null>(hasDeals ? deals[0].id : null);
+
+    const activeDeal = deals.find(d => d.id === selectedDealId);
+    const currentPrice = activeDeal ? activeDeal.price : product.price;
+    const currentTitle = activeDeal ? activeDeal.title : product.title;
+    const currentStock = activeDeal ? activeDeal.stock : product.stock;
 
     useEffect(() => {
         if (quantity > maxQty) setQuantity(maxQty);
@@ -48,12 +66,18 @@ export function ProductActions({ product }: ProductActionsProps) {
         trackBeginCheckout([{
             id: product.id,
             title: product.title,
-            price: product.price,
+            price: currentPrice,
             quantity: qty,
             image: product.image
-        }], product.price * qty + deliveryFeeForQuantity);
+        }], currentPrice * qty + deliveryFeeForQuantity);
 
-        router.push(`/checkout?product=${product.id}&quantity=${qty}`);
+        let url = `/checkout?product=${product.id}&quantity=${qty}`;
+        if (selectedDealId) {
+            // we could pass variationId if checkout page supported it via URL, but cart flow is better.
+            // Wait, we need to pass variationId. Add it to URL.
+            url += `&variationId=${selectedDealId}`;
+        }
+        router.push(url);
     };
 
     const handleShare = async () => {
@@ -141,6 +165,15 @@ export function ProductActions({ product }: ProductActionsProps) {
         return new Intl.NumberFormat("en-PK", { style: "currency", currency: "PKR", minimumFractionDigits: 0 }).format(amount);
     }
 
+    // Build the product object for AddToCart
+    const cartProduct = {
+        ...product,
+        price: currentPrice,
+        stock: currentStock,
+        variationId: activeDeal?.id,
+        variationTitle: activeDeal?.title
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-6">
@@ -192,6 +225,52 @@ export function ProductActions({ product }: ProductActionsProps) {
 
                 {stock > 0 && (
                     <div className="flex flex-col gap-3">
+                        {/* Best Deals UI */}
+                        {hasDeals && (
+                            <div className="mb-4">
+                                <div className="relative flex items-center justify-center mb-4">
+                                    <div className="absolute inset-0 flex items-center">
+                                        <div className="w-full border-t border-zinc-200"></div>
+                                    </div>
+                                    <div className="relative bg-white px-4 text-sm text-zinc-500">
+                                        Best deals
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    {deals.map((deal, idx) => {
+                                        const isSelected = selectedDealId === deal.id;
+                                        return (
+                                            <div
+                                                key={deal.id}
+                                                onClick={() => setSelectedDealId(deal.id)}
+                                                className={`flex items-center justify-between p-4 cursor-pointer transition-all rounded-lg border ${isSelected ? 'border-[1.5px] border-black bg-white' : 'border-zinc-200 bg-white hover:border-zinc-300'}`}
+                                            >
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`flex items-center justify-center w-5 h-5 rounded-full border ${isSelected ? 'border-[5px] border-black bg-white' : 'border-zinc-300 bg-white'}`}>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[15px] font-medium text-zinc-900 leading-tight">{deal.title}</p>
+                                                        {deal.discountLabel && (
+                                                            <p className="text-xs text-zinc-500 uppercase mt-0.5">{deal.discountLabel}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-[15px] font-medium text-zinc-900 leading-tight">{formatPrice(deal.price)}</p>
+                                                    {deal.originalPrice && deal.originalPrice > deal.price && (
+                                                        <p className="text-xs text-zinc-400 line-through mt-0.5">{formatPrice(deal.originalPrice)}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="mt-4 flex justify-end">
+                                    <p className="text-sm font-bold text-zinc-900">Total: {formatPrice(currentPrice * safeQuantity)}</p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Quantity selector */}
                         <div className="flex items-center gap-3">
                             <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">Quantity</span>
@@ -234,13 +313,13 @@ export function ProductActions({ product }: ProductActionsProps) {
                         </Button>
 
                         <AddToCart
-                            product={product}
+                            product={cartProduct}
                             showQuantitySelector={false}
                             quantityProp={safeQuantity}
                             className="w-full h-12 rounded-none border border-black bg-white text-black hover:bg-zinc-50 transition-all font-bold"
                             variant="outline"
                             hideIcon={true}
-                            stock={product.stock}
+                            stock={currentStock}
                         />
 
                         <div className="flex justify-center mt-2">

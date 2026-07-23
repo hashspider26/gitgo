@@ -12,14 +12,16 @@ export interface CartItem {
     weight?: number; // Weight in grams
     advanceDiscount?: number;
     advanceDiscountType?: string;
+    variationId?: string;
+    variationTitle?: string;
 }
 
 interface CartState {
     items: CartItem[];
     isOpen: boolean;
     addItem: (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => void;
-    removeItem: (id: string) => void;
-    updateQuantity: (id: string, quantity: number) => void;
+    removeItem: (id: string, variationId?: string) => void;
+    updateQuantity: (id: string, quantity: number, variationId?: string) => void;
     clearCart: () => void;
     setIsOpen: (isOpen: boolean) => void;
     getTotalItems: () => number;
@@ -36,11 +38,13 @@ export const useCartStore = create<CartState>()(
             addItem: (newItem) => {
                 set((state) => {
                     const qty = newItem.quantity || 1;
-                    const existingItem = state.items.find((item) => item.id === newItem.id);
+                    const existingItem = state.items.find(
+                        (item) => item.id === newItem.id && item.variationId === newItem.variationId
+                    );
                     if (existingItem) {
                         return {
                             items: state.items.map((item) =>
-                                item.id === newItem.id
+                                item.id === newItem.id && item.variationId === newItem.variationId
                                     ? { ...item, quantity: item.quantity + qty }
                                     : item
                             ),
@@ -55,20 +59,20 @@ export const useCartStore = create<CartState>()(
                 });
             },
 
-            removeItem: (id) => {
+            removeItem: (id, variationId) => {
                 set((state) => ({
-                    items: state.items.filter((item) => item.id !== id),
+                    items: state.items.filter((item) => !(item.id === id && item.variationId === variationId)),
                 }));
             },
 
-            updateQuantity: (id, quantity) => {
+            updateQuantity: (id, quantity, variationId) => {
                 set((state) => {
                     if (quantity <= 0) {
-                        return { items: state.items.filter((item) => item.id !== id) };
+                        return { items: state.items.filter((item) => !(item.id === id && item.variationId === variationId)) };
                     }
                     return {
                         items: state.items.map((item) =>
-                            item.id === id ? { ...item, quantity } : item
+                            item.id === id && item.variationId === variationId ? { ...item, quantity } : item
                         ),
                     };
                 });

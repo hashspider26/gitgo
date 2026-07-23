@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Upload, X } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Upload, X } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { getRandomizedUrl } from "@/lib/cloudinary";
@@ -14,6 +14,13 @@ export default function NewProductPage() {
     const [submitting, setSubmitting] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [images, setImages] = useState<string[]>([]);
+    const [deals, setDeals] = useState<{
+        title: string;
+        price: string;
+        originalPrice: string;
+        discountLabel: string;
+        stock: string;
+    }[]>([]);
 
     const [categories, setCategories] = useState<{ id: string, name: string }[]>([]);
 
@@ -58,6 +65,22 @@ export default function NewProductPage() {
         setImages((prev) => prev.filter((_, i) => i !== index));
     }
 
+    function addDeal() {
+        setDeals(prev => [...prev, { title: "", price: "", originalPrice: "", discountLabel: "", stock: "10" }]);
+    }
+
+    function removeDeal(index: number) {
+        setDeals(prev => prev.filter((_, i) => i !== index));
+    }
+
+    function updateDeal(index: number, field: string, value: string) {
+        setDeals(prev => {
+            const updated = [...prev];
+            updated[index] = { ...updated[index], [field]: value };
+            return updated;
+        });
+    }
+
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setSubmitting(true);
@@ -74,7 +97,14 @@ export default function NewProductPage() {
                 body: JSON.stringify({
                     ...data,
                     slug,
-                    images: images
+                    images: images,
+                    variations: deals.map(deal => ({
+                        title: deal.title,
+                        price: Math.floor(Number(deal.price)),
+                        originalPrice: deal.originalPrice ? Math.floor(Number(deal.originalPrice)) : null,
+                        discountLabel: deal.discountLabel || null,
+                        stock: Math.floor(Number(deal.stock))
+                    }))
                 }),
             });
 
@@ -194,6 +224,84 @@ export default function NewProductPage() {
                                         <option key={c.id} value={c.name}>{c.name}</option>
                                     ))}
                                 </select>
+                            </div>
+                        </div>
+
+                        {/* Best Deals / Packages Section */}
+                        <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800">
+                            <div className="flex items-center justify-between mb-4">
+                                <div>
+                                    <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Best Deals / Packages</h2>
+                                    <p className="text-xs text-zinc-500">Add quantity bundles with discounts (e.g., 2 Pots, 4 Pots).</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={addDeal}
+                                    className="flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-md transition-colors"
+                                >
+                                    <Plus className="h-3 w-3" /> Add Deal
+                                </button>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                {deals.map((deal, idx) => (
+                                    <div key={idx} className="p-4 border border-zinc-200 dark:border-zinc-800 rounded-lg relative bg-zinc-50 dark:bg-zinc-900/50">
+                                        <button
+                                            type="button"
+                                            onClick={() => removeDeal(idx)}
+                                            className="absolute top-2 right-2 text-zinc-400 hover:text-red-500 transition-colors"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                        <div className="grid grid-cols-2 gap-4 mt-2">
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold uppercase text-zinc-500">Deal Title</label>
+                                                <input
+                                                    required
+                                                    value={deal.title}
+                                                    onChange={e => updateDeal(idx, "title", e.target.value)}
+                                                    placeholder="e.g. 2 Pots"
+                                                    className="w-full rounded-md border border-zinc-200 px-3 py-1.5 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold uppercase text-zinc-500">Discount Label</label>
+                                                <input
+                                                    value={deal.discountLabel}
+                                                    onChange={e => updateDeal(idx, "discountLabel", e.target.value)}
+                                                    placeholder="e.g. 5% OFF or Standard Price"
+                                                    className="w-full rounded-md border border-zinc-200 px-3 py-1.5 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold uppercase text-zinc-500">Deal Price (PKR)</label>
+                                                <input
+                                                    required
+                                                    type="number"
+                                                    value={deal.price}
+                                                    onChange={e => updateDeal(idx, "price", e.target.value)}
+                                                    placeholder="Discounted Price"
+                                                    className="w-full rounded-md border border-zinc-200 px-3 py-1.5 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold uppercase text-zinc-500">Compare-at Price (PKR)</label>
+                                                <input
+                                                    type="number"
+                                                    value={deal.originalPrice}
+                                                    onChange={e => updateDeal(idx, "originalPrice", e.target.value)}
+                                                    placeholder="Crossed-out Price"
+                                                    className="w-full rounded-md border border-zinc-200 px-3 py-1.5 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {deals.length === 0 && (
+                                    <div className="text-center py-6 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-500 text-sm">
+                                        No deals added. The product will be sold at its standard price.
+                                    </div>
+                                )}
                             </div>
                         </div>
 

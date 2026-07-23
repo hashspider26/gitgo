@@ -21,6 +21,8 @@ interface AddToCartProps {
         weight?: number;
         advanceDiscount?: number;
         advanceDiscountType?: string;
+        variationId?: string;
+        variationTitle?: string;
     };
     showQuantitySelector?: boolean;
     /** When set, this quantity is used for add-to-cart instead of internal state (e.g. from parent quantity selector) */
@@ -62,7 +64,9 @@ export function AddToCart({
             deliveryFee: product.deliveryFee,
             weight: product.weight,
             advanceDiscount: product.advanceDiscount,
-            advanceDiscountType: product.advanceDiscountType
+            advanceDiscountType: product.advanceDiscountType,
+            variationId: product.variationId,
+            variationTitle: product.variationTitle
         });
 
         // Track add to cart event

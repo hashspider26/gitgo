@@ -20,6 +20,8 @@ interface CheckoutItem {
     image?: string;
     advanceDiscount?: number;
     advanceDiscountType?: string;
+    variationId?: string;
+    variationTitle?: string;
 }
 
 export const dynamic = "force-dynamic";
@@ -33,6 +35,7 @@ function CheckoutContent() {
 
     const productIdParam = searchParams.get("product");
     const quantityParam = parseInt(searchParams.get("quantity") || "1");
+    const variationIdParam = searchParams.get("variationId");
 
     const [checkoutItems, setCheckoutItems] = useState<CheckoutItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -88,16 +91,23 @@ function CheckoutContent() {
                             if (Array.isArray(images) && images.length > 0) imageUrl = images[0];
                         } catch (e) { }
 
+                        let activeVariation = null;
+                        if (variationIdParam && product.variations) {
+                            activeVariation = product.variations.find((v: any) => v.id === variationIdParam);
+                        }
+
                         setCheckoutItems([{
                             id: product.id,
-                            title: product.title,
-                            price: product.price,
+                            title: activeVariation ? `${product.title} - ${activeVariation.title}` : product.title,
+                            price: activeVariation ? activeVariation.price : product.price,
                             quantity: quantityParam,
                             deliveryFee: product.deliveryFee || 0,
                             weight: product.weight || 0,
                             image: imageUrl || undefined,
                             advanceDiscount: product.advanceDiscount || 0,
-                            advanceDiscountType: product.advanceDiscountType || "PKR"
+                            advanceDiscountType: product.advanceDiscountType || "PKR",
+                            variationId: activeVariation?.id,
+                            variationTitle: activeVariation?.title
                         }]);
                     }
                 } catch (e) {
@@ -114,7 +124,9 @@ function CheckoutContent() {
                     weight: item.weight || 0,
                     image: item.image,
                     advanceDiscount: (item as any).advanceDiscount || 0,
-                    advanceDiscountType: (item as any).advanceDiscountType || "PKR"
+                    advanceDiscountType: (item as any).advanceDiscountType || "PKR",
+                    variationId: item.variationId,
+                    variationTitle: item.variationTitle
                 })));
                 setLoading(false);
             }
@@ -162,7 +174,9 @@ function CheckoutContent() {
             discountAmount: totalDiscount,
             items: checkoutItems.map(item => ({
                 productId: item.id,
-                quantity: item.quantity
+                quantity: item.quantity,
+                variationId: item.variationId,
+                variationTitle: item.variationTitle
             }))
         };
         try {
@@ -176,10 +190,10 @@ function CheckoutContent() {
                 const orderId = data.readableId || data.id;
                 setConfirmedOrderId(orderId);
                 setSuccess(true);
-                
+
                 // Track purchase event
                 trackPurchase(orderId, checkoutItems, total);
-                
+
                 if (!productIdParam) clearCart();
             } else {
                 alert("Failed to place order. Please check your details and try again.");
@@ -214,7 +228,7 @@ function CheckoutContent() {
                             <span className="text-zinc-900">{paymentMethod === "COD" ? "Cash on Delivery" : "Advance Payment"}</span>
                         </div>
                         <div className="h-px bg-zinc-200" />
-                        
+
                         {paymentMethod === "COD" ? (
                             <p className="text-[10px] text-zinc-400 font-medium italic text-center">
                                 A confirmation SMS has been sent to {formData.phone}
@@ -222,14 +236,14 @@ function CheckoutContent() {
                         ) : (
                             <div className="bg-white border border-zinc-200 rounded-2xl p-4 space-y-4">
                                 <h3 className="text-sm font-black uppercase tracking-tight text-center border-b border-zinc-100 pb-2 mb-2">Advance Payment Instructions</h3>
-                                
+
                                 <div className="space-y-3">
                                     <div className="text-xs">
                                         <p className="font-bold text-zinc-900">Easypaisa</p>
                                         <p className="text-zinc-500">Account Title: <span className="font-medium text-zinc-900">Faisal Raza</span></p>
                                         <p className="text-zinc-500">Account Number: <span className="font-mono font-bold text-zinc-900">03081158620</span></p>
                                     </div>
-                                    
+
                                     <div className="text-xs">
                                         <p className="font-bold text-zinc-900">MCB Bank</p>
                                         <p className="text-zinc-500">Account Title: <span className="font-medium text-zinc-900">Faisal Raza</span></p>
@@ -239,7 +253,7 @@ function CheckoutContent() {
 
                                 <div className="bg-zinc-50 p-3 rounded-xl border border-zinc-100 text-[10px] text-zinc-600 space-y-2">
                                     <p>Please send <span className="font-black text-zinc-900">{formatCurrency(total)}</span> to one of the payment options above.</p>
-                                    
+
                                     <div>
                                         <p className="font-bold text-red-600 uppercase tracking-wider mb-1">Action Required</p>
                                         <p>Send a screenshot of the payment to WhatsApp <span className="font-bold text-zinc-900">03081158620</span> along with Order ID <span className="font-black text-zinc-900">#{confirmedOrderId}</span> to confirm your order.</p>
@@ -335,7 +349,7 @@ function CheckoutContent() {
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className={`h-10 w-10 flex items-center justify-center transition-colors rounded-none ${paymentMethod === "COD" ? "bg-white text-black border border-zinc-200" : "bg-zinc-50 text-zinc-400 group-hover:bg-zinc-100"}`}>
-                                        
+
                                             <Smartphone className="h-5 w-5" />
                                         </div>
                                         <div>
@@ -411,13 +425,14 @@ function CheckoutContent() {
                                     checkoutItems.map((item) => (
                                         <div key={item.id} className="flex gap-4 items-center">
                                             <div className="relative h-16 w-16 bg-white rounded-2xl border border-zinc-100 overflow-hidden flex-shrink-0">
-                                                {item.image && <Image src={item.image} alt={item.title} fill className="object-cover" />}
+                                                {item.image && <img src={item.image} alt={item.title} className="w-full h-full object-cover" />}
                                                 <div className="absolute -top-1 -right-1 bg-black text-white h-5 w-5 rounded-full text-[10px] font-black flex items-center justify-center">
                                                     {item.quantity}
                                                 </div>
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-xs font-black text-zinc-900 uppercase tracking-tight leading-none mb-1 truncate">{item.title}</p>
+                                                {item.variationTitle && <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold mb-1">{item.variationTitle}</p>}
                                                 <p className="text-[10px] font-black text-zinc-400">{formatCurrency(item.price)} each</p>
                                             </div>
                                             <p className="text-xs font-black">{formatCurrency(item.price * item.quantity)}</p>

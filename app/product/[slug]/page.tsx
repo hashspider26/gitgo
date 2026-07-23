@@ -66,6 +66,7 @@ function formatPrice(amount: number) {
 export default async function ProductPage({ params }: Props) {
     const product = await prisma.product.findUnique({
         where: { slug: params.slug },
+        include: { variations: true }
     });
 
     if (!product) notFound();
@@ -154,7 +155,8 @@ export default async function ProductPage({ params }: Props) {
                                     slug: p.slug,
                                     stock: p.stock,
                                     weight: p.weight,
-                                    deliveryFee: p.deliveryFee
+                                    deliveryFee: p.deliveryFee,
+                                    variations: p.variations
                                 }}
                             />
                         </div>
