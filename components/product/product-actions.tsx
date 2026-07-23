@@ -41,7 +41,7 @@ export function ProductActions({ product }: ProductActionsProps) {
     // Deals state
     const deals = product.variations || [];
     const hasDeals = deals.length > 0;
-    const [selectedDealId, setSelectedDealId] = useState<string | null>(hasDeals ? deals[0].id : null);
+    const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
 
     const activeDeal = deals.find(d => d.id === selectedDealId);
     const currentPrice = activeDeal ? activeDeal.price : product.price;
@@ -73,8 +73,6 @@ export function ProductActions({ product }: ProductActionsProps) {
 
         let url = `/checkout?product=${product.id}&quantity=${qty}`;
         if (selectedDealId) {
-            // we could pass variationId if checkout page supported it via URL, but cart flow is better.
-            // Wait, we need to pass variationId. Add it to URL.
             url += `&variationId=${selectedDealId}`;
         }
         router.push(url);
@@ -242,7 +240,7 @@ export function ProductActions({ product }: ProductActionsProps) {
                                         return (
                                             <div
                                                 key={deal.id}
-                                                onClick={() => setSelectedDealId(deal.id)}
+                                                onClick={() => setSelectedDealId(isSelected ? null : deal.id)}
                                                 className={`flex items-center justify-between p-4 cursor-pointer transition-all rounded-lg border ${isSelected ? 'border-[1.5px] border-black bg-white' : 'border-zinc-200 bg-white hover:border-zinc-300'}`}
                                             >
                                                 <div className="flex items-center gap-4">
