@@ -26,6 +26,7 @@ interface ProductActionsProps {
             originalPrice: number | null;
             discountLabel: string | null;
             stock: number;
+            deliveryFee?: number;
         }[];
     };
 }
@@ -52,11 +53,14 @@ export function ProductActions({ product }: ProductActionsProps) {
         if (quantity > maxQty) setQuantity(maxQty);
     }, [stock, maxQty, quantity]);
 
-    // Delivery: base fee for first 1000g, then +100 PKR per extra 1000g
-    const totalWeightGrams = (product.weight || 0) * safeQuantity;
-    const baseFee = product.deliveryFee || 0;
+    // Delivery: if a deal is selected and it has its own deliveryFee, use that.
+    // Otherwise fall back to weight-based calculation on the product-level fee.
+    const baseFee = activeDeal?.deliveryFee !== undefined && activeDeal.deliveryFee >= 0
+        ? activeDeal.deliveryFee
+        : (product.deliveryFee || 0);
+    const totalWeightGrams = activeDeal ? 0 : (product.weight || 0) * safeQuantity; // weight surcharge only applies without deal
     let surcharge = 0;
-    if (totalWeightGrams > 1000) {
+    if (!activeDeal && totalWeightGrams > 1000) {
         surcharge = Math.ceil((totalWeightGrams - 1000) / 1000) * 100;
     }
     const deliveryFeeForQuantity = baseFee + surcharge;
@@ -168,6 +172,7 @@ export function ProductActions({ product }: ProductActionsProps) {
         ...product,
         price: currentPrice,
         stock: currentStock,
+        deliveryFee: activeDeal?.deliveryFee !== undefined ? activeDeal.deliveryFee : product.deliveryFee,
         variationId: activeDeal?.id,
         variationTitle: activeDeal?.title
     };

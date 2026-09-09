@@ -64,7 +64,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
                             price: Number(v.price),
                             originalPrice: v.originalPrice ? Number(v.originalPrice) : null,
                             discountLabel: v.discountLabel || null,
-                            stock: Number(v.stock || 0)
+                            stock: Number(v.stock || 0),
+                            deliveryFee: v.deliveryFee !== undefined ? Number(v.deliveryFee) : 0
                         }))
                     })
                 }

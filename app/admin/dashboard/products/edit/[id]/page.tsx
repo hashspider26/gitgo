@@ -21,6 +21,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         originalPrice: string;
         discountLabel: string;
         stock: string;
+        deliveryFee: string;
     }[]>([]);
 
     // Form states
@@ -79,7 +80,8 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                         price: v.price.toString(),
                         originalPrice: v.originalPrice ? v.originalPrice.toString() : "",
                         discountLabel: v.discountLabel || "",
-                        stock: v.stock.toString()
+                        stock: v.stock.toString(),
+                        deliveryFee: (v.deliveryFee ?? 0).toString()
                     })));
                 }
 
@@ -129,7 +131,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     }
 
     function addDeal() {
-        setDeals(prev => [...prev, { title: "", price: "", originalPrice: "", discountLabel: "", stock: "10" }]);
+        setDeals(prev => [...prev, { title: "", price: "", originalPrice: "", discountLabel: "", stock: "10", deliveryFee: "0" }]);
     }
 
     function removeDeal(index: number) {
@@ -169,7 +171,8 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                         price: Math.floor(Number(deal.price)),
                         originalPrice: deal.originalPrice ? Math.floor(Number(deal.originalPrice)) : null,
                         discountLabel: deal.discountLabel || null,
-                        stock: Math.floor(Number(deal.stock))
+                        stock: Math.floor(Number(deal.stock)),
+                        deliveryFee: Math.floor(Number(deal.deliveryFee || 0))
                     }))
                 }),
             });
@@ -394,6 +397,17 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                                                     onChange={e => updateDeal(idx, "originalPrice", e.target.value)}
                                                     placeholder="Crossed-out Price"
                                                     className="w-full rounded-md border border-zinc-200 px-3 py-1.5 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                                                />
+                                            </div>
+                                            <div className="space-y-1 col-span-2">
+                                                <label className="text-[10px] font-bold uppercase text-orange-600">Delivery Fee for this Deal (PKR)</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={deal.deliveryFee}
+                                                    onChange={e => updateDeal(idx, "deliveryFee", e.target.value)}
+                                                    placeholder="e.g. 350"
+                                                    className="w-full rounded-md border border-orange-200 bg-orange-50 px-3 py-1.5 text-sm focus:border-orange-400 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
                                                 />
                                             </div>
                                         </div>

@@ -9,6 +9,7 @@ import Image from "next/image";
 import { useCartStore } from "@/stores/cart-store";
 import { formatCurrency } from "@/lib/utils";
 import { trackPurchase } from "@/lib/analytics";
+import { getRandomizedUrl } from "@/lib/cloudinary";
 
 interface CheckoutItem {
     id: string; // Product ID
@@ -85,10 +86,12 @@ function CheckoutContent() {
                     const res = await fetch(`/api/products/${productIdParam}`);
                     if (res.ok) {
                         const product = await res.json();
-                        let imageUrl = null;
+                        let imageUrl: string | null = null;
                         try {
                             const images = product.images ? JSON.parse(product.images) : [];
-                            if (Array.isArray(images) && images.length > 0) imageUrl = images[0];
+                            if (Array.isArray(images) && images.length > 0) {
+                                imageUrl = getRandomizedUrl(images[0]) || images[0];
+                            }
                         } catch (e) { }
 
                         let activeVariation = null;
@@ -101,7 +104,10 @@ function CheckoutContent() {
                             title: activeVariation ? `${product.title} - ${activeVariation.title}` : product.title,
                             price: activeVariation ? activeVariation.price : product.price,
                             quantity: quantityParam,
-                            deliveryFee: product.deliveryFee || 0,
+                            // Use deal-specific delivery fee if a variation is selected, else product-level fee
+                            deliveryFee: activeVariation?.deliveryFee !== undefined
+                                ? activeVariation.deliveryFee
+                                : (product.deliveryFee || 0),
                             weight: product.weight || 0,
                             image: imageUrl || undefined,
                             advanceDiscount: product.advanceDiscount || 0,
