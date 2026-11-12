@@ -11,17 +11,23 @@ function formatPrice(amount: number) {
   }).format(amount);
 }
 
+export const dynamic = "force-dynamic";
 export const revalidate = 3600; // Cache for 1 hour
 
 export default async function Home() {
-  const featuredProducts = await prisma.product.findMany({
-    where: { isFeatured: true },
-    orderBy: [
-      { position: 'asc' },
-      { createdAt: 'desc' }
-    ],
-    take: 4,
-  });
+  let featuredProducts: any[] = [];
+  try {
+    featuredProducts = await prisma.product.findMany({
+      where: { isFeatured: true },
+      orderBy: [
+        { position: 'asc' },
+        { createdAt: 'desc' }
+      ],
+      take: 4,
+    });
+  } catch (error) {
+    console.error("Failed to fetch featured products:", error);
+  }
 
   return (
     <div className="flex flex-col min-h-screen">

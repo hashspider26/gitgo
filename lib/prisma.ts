@@ -7,7 +7,17 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 const setupPrisma = () => {
-    const url = process.env.TURSO_DATABASE_URL;
+    // Ensure DATABASE_URL is always defined so Prisma's schema validation never fails
+    // when only TURSO_DATABASE_URL is configured or during build-time prerendering.
+    if (!process.env.DATABASE_URL) {
+        process.env.DATABASE_URL = "file:./dev.db";
+    }
+
+    const url =
+        process.env.TURSO_DATABASE_URL ||
+        (process.env.DATABASE_URL.startsWith("libsql:") || process.env.DATABASE_URL.startsWith("https:")
+            ? process.env.DATABASE_URL
+            : undefined);
     const authToken = process.env.TURSO_AUTH_TOKEN;
 
     if (url && authToken) {

@@ -41,6 +41,11 @@
   "exclude": [
     "node_modules",
     "prisma/**/*.ts",
-    "prisma/**/*.js"
+    "prisma/**/*.js",
+    "scripts/**/*",
+    "scratch/**/*",
+    "setup-turso.ts",
+    "create-table.ts",
+    "test-old-db.ts"
   ]
 }

@@ -27,23 +27,29 @@ export default async function ShopPage({
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const thirtyDaysAgoStr = thirtyDaysAgo.toISOString();
 
-    const [allProducts, categoryDocs] = await Promise.all([
-        prisma.product.findMany({
-            where: category ? {
-                OR: [
-                    { category: { equals: category } },
-                    { category: { equals: category.toLowerCase() } }
+    let allProducts: any[] = [];
+    let categoryDocs: any[] = [];
+    try {
+        [allProducts, categoryDocs] = await Promise.all([
+            prisma.product.findMany({
+                where: category ? {
+                    OR: [
+                        { category: { equals: category } },
+                        { category: { equals: category.toLowerCase() } }
+                    ]
+                } : undefined,
+                orderBy: [
+                    { position: 'asc' },
+                    { createdAt: 'desc' }
                 ]
-            } : undefined,
-            orderBy: [
-                { position: 'asc' },
-                { createdAt: 'desc' }
-            ]
-        }),
-        prisma.category.findMany({
-            orderBy: { name: 'asc' }
-        })
-    ]);
+            }),
+            prisma.category.findMany({
+                orderBy: { name: 'asc' }
+            })
+        ]);
+    } catch (error) {
+        console.error("Failed to fetch shop data:", error);
+    }
 
     const categories = categoryDocs.map((c: any) => c.name);
 
