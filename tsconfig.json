@@ -46,6 +46,8 @@
     "scratch/**/*",
     "setup-turso.ts",
     "create-table.ts",
-    "test-old-db.ts"
+    "test-old-db.ts",
+    "open-next.config.ts",
+    ".open-next/**/*"
   ]
 }
