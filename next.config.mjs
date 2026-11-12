@@ -26,8 +26,19 @@ const nextConfig = {
 		removeConsole: process.env.NODE_ENV === 'production',
 	},
 	// Reduce build memory usage
+	transpilePackages: [
+		"@libsql/client",
+		"@libsql/core",
+		"@libsql/hrana-client",
+		"@libsql/isomorphic-ws",
+		"@libsql/isomorphic-fetch",
+	],
 	experimental: {
 		optimizeCss: false, // Disable CSS optimization to reduce memory
+		outputFileTracingIncludes: {
+			"/*": ["./node_modules/@libsql/**/*"],
+			"/**": ["./node_modules/@libsql/**/*"],
+		},
 	},
 	// Reduce build output
 	output: 'standalone', // Creates a minimal production build
