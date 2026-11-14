@@ -36,8 +36,19 @@ const nextConfig = {
 			"@libsql/core",
 			"@libsql/hrana-client",
 			"@libsql/isomorphic-ws",
-			"@libsql/isomorphic-fetch",
 		],
+		outputFileTracingIncludes: {
+			"/*": [
+				"./node_modules/@libsql/**/*",
+				"./node_modules/.prisma/client/**/*",
+				"./node_modules/@prisma/client/**/*",
+			],
+			"/**": [
+				"./node_modules/@libsql/**/*",
+				"./node_modules/.prisma/client/**/*",
+				"./node_modules/@prisma/client/**/*",
+			],
+		},
 	},
 	// Reduce build output
 	output: 'standalone', // Creates a minimal production build
@@ -46,5 +57,3 @@ const nextConfig = {
 };
 
 export default nextConfig;
-
-
