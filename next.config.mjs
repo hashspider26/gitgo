@@ -36,8 +36,24 @@ const nextConfig = {
 	experimental: {
 		optimizeCss: false, // Disable CSS optimization to reduce memory
 		outputFileTracingIncludes: {
-			"/*": ["./node_modules/@libsql/**/*"],
-			"/**": ["./node_modules/@libsql/**/*"],
+			"/*": [
+				"./node_modules/@libsql/**/*",
+				"./node_modules/.prisma/client/*.js",
+				"./node_modules/.prisma/client/*.mjs",
+				"./node_modules/.prisma/client/*.wasm",
+				"./node_modules/.prisma/client/package.json",
+				"./node_modules/@prisma/client/*.js",
+				"./node_modules/@prisma/client/runtime/wasm.js",
+			],
+			"/**": [
+				"./node_modules/@libsql/**/*",
+				"./node_modules/.prisma/client/*.js",
+				"./node_modules/.prisma/client/*.mjs",
+				"./node_modules/.prisma/client/*.wasm",
+				"./node_modules/.prisma/client/package.json",
+				"./node_modules/@prisma/client/*.js",
+				"./node_modules/@prisma/client/runtime/wasm.js",
+			],
 		},
 	},
 	// Reduce build output
