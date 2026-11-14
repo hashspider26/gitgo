@@ -1,6 +1,15 @@
 {
+  "$schema": "node_modules/wrangler/config-schema.json",
   "name": "greenvalley",
-  "compatibility_date": "2024-01-01",
+  "compatibility_date": "2024-03-20",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "main": ".vercel/output/_worker.js",
+  "assets": {
+    "directory": ".vercel/output/static",
+    "binding": "ASSETS"
+  },
   "vars": {
     "TURSO_DATABASE_URL": "libsql://greenvalleyseeds-hashspider.aws-ap-south-1.turso.io",
     "DATABASE_URL": "file:./dev.db",
