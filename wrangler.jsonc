@@ -12,11 +12,11 @@
   },
   "vars": {
     "TURSO_DATABASE_URL": "libsql://greenvalleyseeds-hashspider.aws-ap-south-1.turso.io",
-    "DATABASE_URL": "file:./dev.db",
+    "DATABASE_URL": "libsql://greenvalleyseeds-hashspider.aws-ap-south-1.turso.io",
     "CLOUDINARY_CLOUD_NAME": "dglf8tzbw",
     "CLOUDINARY_API_KEY": "122184543887739",
     "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME": "dglf8tzbw",
-    "NEXTAUTH_URL": "http://greenvalleyseeds.pk",
+    "NEXTAUTH_URL": "https://greenvalleyseeds.pk",
     "NEXT_PUBLIC_GA_ID": "G-P9102JKHC8",
     "NEXT_PUBLIC_META_PIXEL_ID": "2740536566288654"
   }
