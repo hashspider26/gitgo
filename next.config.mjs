@@ -26,35 +26,18 @@ const nextConfig = {
 		removeConsole: process.env.NODE_ENV === 'production',
 	},
 	// Reduce build memory usage
-	transpilePackages: [
-		"@libsql/client",
-		"@libsql/core",
-		"@libsql/hrana-client",
-		"@libsql/isomorphic-ws",
-		"@libsql/isomorphic-fetch",
-	],
 	experimental: {
 		optimizeCss: false, // Disable CSS optimization to reduce memory
-		outputFileTracingIncludes: {
-			"/*": [
-				"./node_modules/@libsql/**/*",
-				"./node_modules/.prisma/client/*.js",
-				"./node_modules/.prisma/client/*.mjs",
-				"./node_modules/.prisma/client/*.wasm",
-				"./node_modules/.prisma/client/package.json",
-				"./node_modules/@prisma/client/*.js",
-				"./node_modules/@prisma/client/runtime/wasm.js",
-			],
-			"/**": [
-				"./node_modules/@libsql/**/*",
-				"./node_modules/.prisma/client/*.js",
-				"./node_modules/.prisma/client/*.mjs",
-				"./node_modules/.prisma/client/*.wasm",
-				"./node_modules/.prisma/client/package.json",
-				"./node_modules/@prisma/client/*.js",
-				"./node_modules/@prisma/client/runtime/wasm.js",
-			],
-		},
+		serverComponentsExternalPackages: [
+			"@prisma/client",
+			".prisma/client",
+			"@prisma/adapter-libsql",
+			"@libsql/client",
+			"@libsql/core",
+			"@libsql/hrana-client",
+			"@libsql/isomorphic-ws",
+			"@libsql/isomorphic-fetch",
+		],
 	},
 	// Reduce build output
 	output: 'standalone', // Creates a minimal production build
