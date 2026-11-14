@@ -7,6 +7,10 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 const customFetch = async (input: any, init?: any) => {
+    // Capture native fetch bypassing Next.js patchedFetch if available
+    const nativeFetch: typeof fetch =
+        (globalThis as any)._nextOriginalFetch || globalThis.fetch;
+
     if (
         input &&
         typeof input === "object" &&
@@ -20,25 +24,25 @@ const customFetch = async (input: any, init?: any) => {
             });
         }
         const method = input.method || "GET";
-        const body =
-            method !== "GET" && method !== "HEAD" && input.body != null
-                ? input.body
-                : undefined;
-        return globalThis.fetch(input.url, {
+        let body: any = undefined;
+        if (method !== "GET" && method !== "HEAD" && input.body != null) {
+            body =
+                input.body instanceof Uint8Array
+                    ? new Uint8Array(input.body.buffer, input.body.byteOffset, input.body.byteLength)
+                    : input.body;
+        }
+        return nativeFetch(input.url, {
             method,
             headers,
             body,
+            cache: "no-store",
             ...init,
         });
     }
-    return globalThis.fetch(input, init);
+    return nativeFetch(input, { cache: "no-store", ...init });
 };
 
-const getPrisma = (): PrismaClient => {
-    if (globalForPrisma.prisma) {
-        return globalForPrisma.prisma;
-    }
-
+const createPrismaClient = (): PrismaClient => {
     // Ensure DATABASE_URL is always defined so Prisma's schema validation never fails
     if (!process.env.DATABASE_URL) {
         process.env.DATABASE_URL = "file:./dev.db";
@@ -52,7 +56,6 @@ const getPrisma = (): PrismaClient => {
     const authToken = process.env.TURSO_AUTH_TOKEN;
 
     if (rawUrl) {
-        console.log("Prisma: Using Turso Live Database Connection");
         const url = rawUrl.replace(/^libsql:\/\//, "https://");
         const libsql = createClient({
             url,
@@ -60,19 +63,39 @@ const getPrisma = (): PrismaClient => {
             fetch: customFetch,
         });
         const adapter = new PrismaLibSQL(libsql);
-        const client = new PrismaClient({ adapter });
-        globalForPrisma.prisma = client;
-        return client;
+        return new PrismaClient({ adapter });
     }
 
-    console.log("Prisma: Fallback to local SQLite connection");
-    const client = new PrismaClient();
-    globalForPrisma.prisma = client;
-    return client;
+    return new PrismaClient();
 };
 
-// Lazy Proxy so PrismaClient is only instantiated at request time AFTER
-// Cloudflare Workers has populated process.env (TURSO_DATABASE_URL / TURSO_AUTH_TOKEN).
+const getPrisma = (): PrismaClient => {
+    // In Cloudflare Workers / OpenNext, each request has its own AsyncLocalStorage store
+    // (__openNextAls). Sharing a PrismaClient across different Worker requests causes
+    // cross-request I/O cancellation when concurrent RSC prefetches run.
+    const alsStore = (globalThis as any).__openNextAls?.getStore?.();
+    if (alsStore) {
+        if (!alsStore.__prismaClient) {
+            alsStore.__prismaClient = createPrismaClient();
+        }
+        return alsStore.__prismaClient;
+    }
+
+    const isWorkerd =
+        typeof (globalThis as any).WebSocketPair !== "undefined" ||
+        (typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers");
+    if (isWorkerd) {
+        return createPrismaClient();
+    }
+
+    if (!globalForPrisma.prisma) {
+        globalForPrisma.prisma = createPrismaClient();
+    }
+    return globalForPrisma.prisma;
+};
+
+// Lazy Proxy so PrismaClient is resolved per-request in Cloudflare Workers
+// and cached as a singleton in standard Node.js / Vercel environments.
 export const prisma = new Proxy({} as PrismaClient, {
     get(_target, prop, receiver) {
         const client = getPrisma();

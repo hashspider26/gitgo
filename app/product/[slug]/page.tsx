@@ -1,3 +1,4 @@
+import { cache } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
@@ -11,17 +12,27 @@ import { TrackViewItem } from "@/components/analytics/track-view-item";
 import { getRandomizedUrl } from "@/lib/cloudinary";
 
 // Force dynamic rendering to ensure fresh data and valid metadata generation on request
-export const revalidate = 3600; // Cache for 1 hour
+export const dynamic = "force-dynamic";
 
 interface Props {
     params: { slug: string };
 }
 
+const getProductBySlug = cache(async (slug: string) => {
+    try {
+        return await prisma.product.findUnique({
+            where: { slug },
+            include: { variations: true },
+        });
+    } catch (error) {
+        console.error("Failed to fetch product by slug:", error);
+        return null;
+    }
+});
+
 // Generate SEO Metadata
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-    const product = await prisma.product.findUnique({
-        where: { slug: params.slug },
-    });
+    const product = await getProductBySlug(params.slug);
 
     if (!product) {
         return {
@@ -64,24 +75,26 @@ function formatPrice(amount: number) {
 }
 
 export default async function ProductPage({ params }: Props) {
-    const product = await prisma.product.findUnique({
-        where: { slug: params.slug },
-        include: { variations: true }
-    });
+    const product = await getProductBySlug(params.slug);
 
     if (!product) notFound();
 
     const p = product as any;
 
     // Fetch related products
-    const relatedProducts = await prisma.product.findMany({
-        where: {
-            category: p.category,
-            id: { not: p.id }
-        },
-        take: 4,
-        orderBy: { createdAt: 'desc' }
-    });
+    let relatedProducts: any[] = [];
+    try {
+        relatedProducts = await prisma.product.findMany({
+            where: {
+                category: p.category,
+                id: { not: p.id }
+            },
+            take: 4,
+            orderBy: { createdAt: 'desc' }
+        });
+    } catch (error) {
+        console.error("Failed to fetch related products:", error);
+    }
 
     let images: string[] = [];
     try {

@@ -14,7 +14,7 @@ function formatPrice(amount: number) {
     }).format(amount);
 }
 
-export const revalidate = 3600; // Cache for 1 hour
+export const dynamic = "force-dynamic";
 
 export default async function ShopPage({
     searchParams,
